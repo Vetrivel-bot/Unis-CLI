@@ -4,11 +4,13 @@ import android.app.Application
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
-import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
-import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.defaults.DefaultReactHost
+import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
+import com.unis.vpn.VpnPackage
+import com.unis.storage.SecureStoragePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -16,9 +18,11 @@ class MainApplication : Application(), ReactApplication {
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
                 PackageList(this).packages.apply {
-                    add(HelloPackage()) // manually add your HelloModule package
-                      add(ScreenSecurityPackage())     // new secure module
-  }
+                    add(HelloPackage())             // manually added HelloModule
+                    add(ScreenSecurityPackage())    // manually added secure module
+                    add(VpnPackage())   
+                   add(SecureStoragePackage())              // manually added VPN package
+                }
 
             override fun getJSMainModuleName(): String = "index"
 
@@ -29,7 +33,7 @@ class MainApplication : Application(), ReactApplication {
         }
 
     override val reactHost: ReactHost
-        get() = getDefaultReactHost(applicationContext, reactNativeHost)
+        get() = DefaultReactHost.getDefaultReactHost(applicationContext, reactNativeHost)
 
     override fun onCreate() {
         super.onCreate()
