@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import Spinner from '../component/Spinner'; // adjust the path if needed
 
 const HomeScreen = ({ navigation }) => {
   const { theme, toggleTheme } = useTheme();
   const themedStyles = theme === 'dark' ? darkStyles : styles;
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 3000); // 3 seconds
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return <Spinner overlay={true} />;
+  }
+
   return (
     <View style={themedStyles.container}>
       <Text style={themedStyles.title}>Hello Navigation</Text>
@@ -28,7 +41,6 @@ const HomeScreen = ({ navigation }) => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {

@@ -8,6 +8,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     secondary: '#6c757d',
     card: '#f8f9fa',
     border: '#dee2e6',
+    
     // Add more semantic colors as needed
   },
   dark: {
