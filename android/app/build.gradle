@@ -120,3 +120,6 @@ implementation "androidx.biometric:biometric:1.2.0-alpha03" // or stable latest
         implementation jscFlavor
     }
 }
+
+// This line ensures vector icons fonts are bundled
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
