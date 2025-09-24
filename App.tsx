@@ -1,24 +1,35 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from './src/screen/HomeScreen';
-import SecureStorageScreen from './src/screen/SecureStorageScreen';
-import ThemeDemoScreen from './src/screen/ThemeDemoScreen';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeColors } from './src/context/themeColors';
+import RootNavigator from './src/navigation/RootNavigator';
 
-const Stack = createNativeStackNavigator();
+function AppContainer() {
+  const colors = useThemeColors();
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </SafeAreaView>
+  );
+}
 
 export default function App() {
   return (
     <ThemeProvider>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Home" 
-        screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Hello Navigation' }} />
-          <Stack.Screen name="SecureStorage" component={SecureStorageScreen} options={{ title: 'Secure Storage Test' }} />
-          <Stack.Screen name="ThemeDemo" component={ThemeDemoScreen} options={{ title: 'Theme Demo' }} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <SafeAreaProvider>
+        <AppContainer />
+      </SafeAreaProvider>
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+});
