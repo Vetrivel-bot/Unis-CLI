@@ -22,33 +22,24 @@ export default function ProfileScreen() {
   // Conditionally choose the correct doodle image based on the theme
   const doodleSource = isDarkTheme
     ? require('../../assets/Unis-dark.png') // Use the dark version for dark themes
-    : require('../../assets/Unis.png');       // Use the light version for light themes
+    : require('../../assets/Unis.png'); // Use the light version for light themes
 
   return (
     // 1. Base View with the theme's solid background color
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
       {/* 2. Your theme-specific transparent doodle PNG, layered on top. */}
-      <Image
-        source={doodleSource}
-        style={styles.doodleBackground}
-        resizeMode="cover"
-      />
+      <Image source={doodleSource} style={styles.doodleBackground} resizeMode='cover' />
 
       {/* 3. Your screen content, layered on top of everything else */}
-      <ChatListScreen
-        headerHeight={headerHeight}
-        footerHeight={footerHeight}
-      />
+      <ChatListScreen headerHeight={headerHeight} footerHeight={footerHeight} />
 
       <ProfileHeader
-        title="Messages"
+        title='Messages'
         // Add your onPress functions here
       />
 
       {/* Your floating footer would go here */}
       {/* <FooterTabs /> */}
-
     </View>
   );
 }

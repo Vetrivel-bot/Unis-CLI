@@ -6,7 +6,11 @@ module.exports = function (api) {
       'nativewind/babel', // If using NativeWind
     ],
     plugins: [
-      ['react-native-worklets/plugin', { processNestedWorklets: true }], // Correct syntax
+      [
+        'react-native-worklets/plugin',
+        { processNestedWorklets: true },
+        'react-native-reanimated/plugin',
+      ], // Correct syntax
     ],
   };
 };

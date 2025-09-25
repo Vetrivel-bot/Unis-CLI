@@ -8,7 +8,7 @@ const HomeScreen = () => {
   return (
     <View>
       <Text>Welcome to Home!</Text>
-      <Button title="Go to Profile" onPress={() => navigation.navigate('Profile' as never)} />
+      <Button title='Go to Profile' onPress={() => navigation.navigate('Profile' as never)} />
     </View>
   );
 };

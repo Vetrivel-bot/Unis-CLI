@@ -1,71 +1,134 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MoreVertical } from 'lucide-react-native'; // Using Lucide for consistency
-import { useThemeColors } from '../../context/themeColors';
+import { MoreVertical, Search, Phone, Video } from 'lucide-react-native';
+import { useThemeColors } from '../../context/themeColors'; // Adjust path as needed
+import Dropdown from '../ui/layout/DropBox';
 
+/**
+ * ProfileHeader
+ * - Sleek header for a mobile chatting app
+ * - Glass morphism design with theme colors
+ * - Integrates with Dropdown component
+ */
 interface ProfileHeaderProps {
   title: string;
   avatarUrl?: string;
   onPressAvatar?: () => void;
   onPressSearch?: () => void;
-  onPressMenu?: () => void;
+  screen?: string;
+  onlineStatus?: string;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   title,
-  avatarUrl = 'https://i.pravatar.cc/100', // fallback avatar
+  avatarUrl = 'https://i.pravatar.cc/100',
   onPressAvatar,
   onPressSearch,
-  onPressMenu,
+  screen = 'Home',
+  onlineStatus = 'Online',
 }) => {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  
-  // A simple check to determine theme, assuming `background` is a good indicator
-  const isDarkTheme = colors.background.startsWith('#1'); 
 
-  // Dynamic styles that depend on the theme
+  const isDarkTheme = colors.background.startsWith('#1');
+
   const dynamicStyles = {
     glassContainer: {
-      backgroundColor: colors.glassBackground,
-      borderColor: colors.glassBorder,
-      shadowColor: colors.glassShadow,
+      backgroundColor: colors.glassBackground || 'rgba(255, 255, 255, 0.1)',
+      borderColor: colors.glassBorder || 'rgba(255, 255, 255, 0.2)',
+      shadowColor: colors.glassShadow || '#000000',
     },
     iconWrapper: {
-      backgroundColor: colors.cardSecondary,
-    }
+      backgroundColor: colors.cardSecondary || 'rgba(255, 255, 255, 0.15)',
+    },
   };
+
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    console.log('Toggling menu, new state:', !menuOpen); // Debug log
+    setMenuOpen(prev => !prev);
+  };
+
+  const menuItems = [
+    { label: 'Profile', onPress: () => console.log('Profile pressed') },
+    { label: 'Settings', onPress: () => console.log('Settings pressed') },
+    { label: 'Sign Out', onPress: () => console.log('Sign Out pressed') },
+  ];
+
+  const anchorTop = insets.top + 10 + 45;
+  const anchorRight = 16;
 
   return (
     <>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
-      {/* The outer container positions the floating header correctly */}
       <View style={[styles.outerContainer, { top: insets.top + 10 }]}>
         <View style={[styles.glassContainer, dynamicStyles.glassContainer]}>
-          
-          {/* Left side: Avatar + Title */}
           <View style={styles.leftWrapper}>
             <TouchableOpacity onPress={onPressAvatar} activeOpacity={0.8}>
               <Image source={{ uri: avatarUrl }} style={styles.avatar} />
             </TouchableOpacity>
-            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-              {title}
-            </Text>
+            <View>
+              <Text
+                style={{
+                  fontSize: screen === 'ChatScreen' ? 16 : 20,
+                  color: colors.text,
+                  fontWeight: '600',
+                }}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {screen === 'ChatScreen' && onlineStatus && (
+                <Text
+                  style={{ fontSize: 12, color: colors.text, opacity: 0.7, fontWeight: '500' }}
+                  numberOfLines={1}
+                >
+                  {onlineStatus}
+                </Text>
+              )}
+            </View>
           </View>
-          
-          {/* Right actions */}
+
           <View style={styles.rightActions}>
-            <TouchableOpacity onPress={onPressSearch} style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
-              <Search size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onPressMenu} style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
+            {screen === 'Home' && (
+              <TouchableOpacity
+                onPress={onPressSearch}
+                style={[styles.iconWrapper, dynamicStyles.iconWrapper]}
+              >
+                <Search size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+
+            {screen === 'ChatScreen' && (
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
+                  <Phone size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
+                  <Video size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={toggleMenu}
+              style={[styles.iconWrapper, dynamicStyles.iconWrapper]}
+            >
               <MoreVertical size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-
         </View>
       </View>
+
+      <Dropdown
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        data={menuItems}
+        anchorTop={anchorTop}
+        anchorRight={anchorRight}
+      />
     </>
   );
 };
@@ -86,20 +149,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 64,
     ...Platform.select({
-      ios: {
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: {
-        elevation: 12,
-      },
+      ios: { shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 12 },
     }),
   },
   leftWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1, // Allow this to take available space
+    flex: 1,
     paddingRight: 10,
   },
   avatar: {
@@ -107,11 +164,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    flexShrink: 1, // Ensure title shrinks if space is limited
   },
   rightActions: {
     flexDirection: 'row',

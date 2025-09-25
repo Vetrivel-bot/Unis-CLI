@@ -7,7 +7,7 @@ const Stack = createNativeStackNavigator();
 const DevNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="ThemeDemo" component={ThemeDemoScreen} />
+      <Stack.Screen name='ThemeDemo' component={ThemeDemoScreen} />
       {/* Add more dev/test screens here if needed */}
     </Stack.Navigator>
   );

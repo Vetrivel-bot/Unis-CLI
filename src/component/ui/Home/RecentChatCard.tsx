@@ -47,7 +47,7 @@ function parseColorToRgb(color: string) {
   // rgb or rgba
   const rgbMatch = color.match(/rgba?\(([^)]+)\)/);
   if (rgbMatch) {
-    const parts = rgbMatch[1].split(',').map((p) => parseFloat(p.trim()));
+    const parts = rgbMatch[1].split(',').map(p => parseFloat(p.trim()));
     return { r: parts[0], g: parts[1], b: parts[2] };
   }
   return null;
@@ -115,16 +115,17 @@ const RecentChatCard: React.FC<RecentChatCardProps> = ({
     ];
   }, [isDarkMode, colors.card, colors.border]);
 
-  const unreadStyle = useMemo(() => [styles.unreadBadge, { backgroundColor: colors.primary }], [
-    colors.primary,
-  ]);
+  const unreadStyle = useMemo(
+    () => [styles.unreadBadge, { backgroundColor: colors.primary }],
+    [colors.primary],
+  );
 
   return (
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.8}
       style={containerStyle}
-      accessibilityRole="button"
+      accessibilityRole='button'
     >
       <FastImage
         style={styles.avatar as any}

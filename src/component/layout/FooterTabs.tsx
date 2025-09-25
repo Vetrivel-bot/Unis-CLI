@@ -82,7 +82,7 @@ const FooterTabs: React.FC<BottomTabBarProps> = ({ state, descriptors, navigatio
           return (
             <TouchableOpacity
               key={`${route.key}-${index}`}
-              accessibilityRole="button"
+              accessibilityRole='button'
               accessibilityState={isFocused ? { selected: true } : {}}
               accessibilityLabel={options?.tabBarAccessibilityLabel}
               onPress={onPress}
@@ -94,11 +94,7 @@ const FooterTabs: React.FC<BottomTabBarProps> = ({ state, descriptors, navigatio
               ]}
               activeOpacity={0.8}
             >
-              <IconComponent
-                size={22}
-                color={iconColor}
-                strokeWidth={isFocused ? 2 : 1.5}
-              />
+              <IconComponent size={22} color={iconColor} strokeWidth={isFocused ? 2 : 1.5} />
               <Text
                 style={[
                   styles.label,

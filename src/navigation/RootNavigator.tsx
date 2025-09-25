@@ -10,11 +10,11 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {/* Tab navigator as the main app flow */}
-      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name='MainTabs' component={MainTabs} />
 
       {/* Other flows */}
-      <Stack.Screen name="HomeFlow" component={HomeNavigator} />
-      <Stack.Screen name="DevFlow" component={DevNavigator} />
+      <Stack.Screen name='HomeFlow' component={HomeNavigator} />
+      <Stack.Screen name='DevFlow' component={DevNavigator} />
     </Stack.Navigator>
   );
 }
