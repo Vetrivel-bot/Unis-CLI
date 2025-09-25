@@ -1,68 +1,129 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import Feather from 'react-native-vector-icons/Feather'; // Using Feather icons as an example
-
-// Assuming useThemeColors returns an object like { background: '...', text: '...', ... }
-// If your hook is different, you might need to adjust the color names.
-import { useThemeColors } from '../../context/themeColors'; 
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Search, MoreVertical } from 'lucide-react-native'; // Using Lucide for consistency
+import { useThemeColors } from '../../context/themeColors';
 
 interface ProfileHeaderProps {
   title: string;
-  onPressLeft?: () => void;
-  onPressRight?: () => void;
+  avatarUrl?: string;
+  onPressAvatar?: () => void;
+  onPressSearch?: () => void;
+  onPressMenu?: () => void;
 }
 
-const ProfileHeader: React.FC<ProfileHeaderProps> = ({ 
-  title, 
-  onPressLeft, 
-  onPressRight 
+const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+  title,
+  avatarUrl = 'https://i.pravatar.cc/100', // fallback avatar
+  onPressAvatar,
+  onPressSearch,
+  onPressMenu,
 }) => {
-  const navigation = useNavigation();
   const colors = useThemeColors();
-
-  // Default left action is to go back, if available
-  const handleLeftPress = onPressLeft ? onPressLeft : () => navigation.canGoBack() && navigation.goBack();
+  const insets = useSafeAreaInsets();
   
-  // A placeholder function for the right icon
-  const handleRightPress = onPressRight ? onPressRight : () => console.log('Right icon pressed');
+  // A simple check to determine theme, assuming `background` is a good indicator
+  const isDarkTheme = colors.background.startsWith('#1'); 
+
+  // Dynamic styles that depend on the theme
+  const dynamicStyles = {
+    glassContainer: {
+      backgroundColor: colors.glassBackground,
+      borderColor: colors.glassBorder,
+      shadowColor: colors.glassShadow,
+    },
+    iconWrapper: {
+      backgroundColor: colors.cardSecondary,
+    }
+  };
 
   return (
-    // SafeAreaView might be needed here depending on your screen setup
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-       <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
-      {/* Left Icon */}
-      <TouchableOpacity onPress={handleLeftPress} style={styles.iconContainer}>
-        <Feather name="menu" size={24} color={colors.text} />
-      </TouchableOpacity>
+    <>
+      <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
+      {/* The outer container positions the floating header correctly */}
+      <View style={[styles.outerContainer, { top: insets.top + 10 }]}>
+        <View style={[styles.glassContainer, dynamicStyles.glassContainer]}>
+          
+          {/* Left side: Avatar + Title */}
+          <View style={styles.leftWrapper}>
+            <TouchableOpacity onPress={onPressAvatar} activeOpacity={0.8}>
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+          
+          {/* Right actions */}
+          <View style={styles.rightActions}>
+            <TouchableOpacity onPress={onPressSearch} style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
+              <Search size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onPressMenu} style={[styles.iconWrapper, dynamicStyles.iconWrapper]}>
+              <MoreVertical size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-      {/* Title */}
-      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-
-      {/* Right Icon */}
-      <TouchableOpacity onPress={handleRightPress} style={styles.iconContainer}>
-        <Feather name="search" size={22} color={colors.text} />
-      </TouchableOpacity>
-    </View>
+        </View>
+      </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
+    position: 'absolute',
+    width: '100%',
+    paddingHorizontal: 16,
+    zIndex: 100,
+  },
+  glassContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // This is key for the layout
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    // No bottom border to match the image
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 64,
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  leftWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1, // Allow this to take available space
+    paddingRight: 10,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
   },
   title: {
-    fontSize: 22, // Bigger font size
-    fontWeight: 'bold', // Bolder text
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '600',
+    flexShrink: 1, // Ensure title shrinks if space is limited
   },
-  iconContainer: {
-    padding: 4, // Makes the touch area a bit bigger
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
   },
 });
 
