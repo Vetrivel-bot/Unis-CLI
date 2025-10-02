@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, Search, Phone, Video } from 'lucide-react-native';
+import {
+  MoreVertical,
+  Search,
+  Phone,
+  Video,
+  ArrowBigLeftDash,
+  ArrowLeftToLine,
+  ArrowLeft,
+} from 'lucide-react-native';
 import { useThemeColors } from '../../context/themeColors'; // Adjust path as needed
 import Dropdown from '../ui/layout/DropBox';
-
+import { useNavigation } from '@react-navigation/native';
 /**
  * ProfileHeader
  * - Sleek header for a mobile chatting app
@@ -30,17 +38,18 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
 
   const isDarkTheme = colors.background.startsWith('#1');
 
   const dynamicStyles = {
     glassContainer: {
-      backgroundColor: colors.glassBackground || 'rgba(255, 255, 255, 0.1)',
+      backgroundColor: colors.glassBackground || 'rgba(221, 0, 255, 1)',
       borderColor: colors.glassBorder || 'rgba(255, 255, 255, 0.2)',
       shadowColor: colors.glassShadow || '#000000',
     },
     iconWrapper: {
-      backgroundColor: colors.cardSecondary || 'rgba(255, 255, 255, 0.15)',
+      // backgroundColor: colors.cardSecondary || 'rgba(255, 255, 255, 0.15)',
     },
   };
 
@@ -63,9 +72,20 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   return (
     <>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
-      <View style={[styles.outerContainer, { top: insets.top + 10 }]}>
+      <View style={[styles.outerContainer]}>
         <View style={[styles.glassContainer, dynamicStyles.glassContainer]}>
           <View style={styles.leftWrapper}>
+            {screen === 'ChatScreen' && (
+              <TouchableOpacity
+                // Call navigation.goBack() when the button is pressed
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.8}
+                // Add an inline style object
+                style={{ paddingRight: 3 }}
+              >
+                <ArrowLeft color='white' size={20} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={onPressAvatar} activeOpacity={0.8}>
               <Image source={{ uri: avatarUrl }} style={styles.avatar} />
             </TouchableOpacity>
@@ -137,7 +157,6 @@ const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
     width: '100%',
-    paddingHorizontal: 16,
     zIndex: 100,
   },
   glassContainer: {
@@ -145,13 +164,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 8,
-    borderRadius: 24,
-    borderWidth: 1,
+    paddingHorizontal: 13,
+    paddingTop: 10,
     height: 64,
-    ...Platform.select({
-      ios: { shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 12 },
-    }),
+    // ...Platform.select({
+    //   ios: { shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 4 } },
+    //   android: { elevation: 12 },
+    // }),
   },
   leftWrapper: {
     flexDirection: 'row',

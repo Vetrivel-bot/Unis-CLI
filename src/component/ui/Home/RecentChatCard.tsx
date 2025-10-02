@@ -75,11 +75,11 @@ const RecentChatCard: React.FC<RecentChatCardProps> = ({
   const colors = useThemeColors();
 
   // Tunable values for dark (glass) look — change these if you want stronger/weaker glass
-  const DARK_BG = 'rgba(255,255,255,0.10)'; // matches bg-white/10
-  const DARK_BORDER = 'rgba(255,255,255,0.20)';
+  const DARK_BG = 'rgba(0, 0, 0, 0)'; // matches bg-white/10
+  const DARK_BORDER = 'rgba(102, 102, 102, 0)';
 
   // Tunable fallback for light theme border
-  const LIGHT_BORDER_FALLBACK = 'rgba(0,0,0,0.06)';
+  const LIGHT_BORDER_FALLBACK = 'rgba(0, 0, 0, 0)';
 
   // Decide dark mode:
   // prefer explicit token if available, else derive from colors.card
@@ -186,31 +186,33 @@ interface Style {
 
 const styles = StyleSheet.create<Style>({
   container: {
-    width: '95%',
+    width: '97%',
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderRadius: 25, // pill-shaped smooth curve
-    marginVertical: 8,
-    borderWidth: 1,
+    // borderRadius: 25, // pill-shaped smooth curve
+    marginVertical: 2,
+    borderBottomWidth: 1,
     // fallback borderColor is overridden by inline styles
     borderColor: 'rgba(0,0,0,0.06)',
     // shadows retained; remove/reduce if you need better perf on low-end devices
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    // shadowColor: '#303030ff',
+    // shadowOffset: { width: 0, height: 6 },
+    // shadowOpacity: 0.08,
+    // shadowRadius: 12,
+    // elevation: 5,
   },
   avatar: {
     width: 55,
     height: 55,
     borderRadius: 27.5,
     marginRight: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    // borderWidth: 3,
+    // borderColor: 'rgba(35, 95, 248, 0.64)',
+    // borderRightWidth: 0,
+    // borderTopWidth:0
   },
   contentContainer: {
     flex: 1,

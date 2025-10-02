@@ -255,14 +255,14 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ headerHeight = 0, foote
       keyExtractor={item => item.id}
       style={styles.list}
       contentContainerStyle={{
-        paddingTop: headerHeight,
-        paddingBottom: footerHeight,
+        // paddingTop: headerHeight,
+        paddingBottom: footerHeight + 120,
       }}
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       initialNumToRender={10}
       maxToRenderPerBatch={10}
-      windowSize={7}
+      windowSize={6}
       removeClippedSubviews={true}
       getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
     />
@@ -272,6 +272,10 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ headerHeight = 0, foote
 const styles = StyleSheet.create({
   list: {
     flex: 1,
+    zIndex: 60,
+    borderTopRightRadius: 30,
+    borderTopLeftRadius: 30,
+    paddingTop: 10,
   },
 });
 

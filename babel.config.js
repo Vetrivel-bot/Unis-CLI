@@ -2,15 +2,22 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: [
-      '@react-native/babel-preset', // Required for React Native 0.81
-      'nativewind/babel', // If using NativeWind
+      '@react-native/babel-preset',
+      'nativewind/babel',
     ],
     plugins: [
+      // Plugin for environment variables
       [
-        'react-native-worklets/plugin',
-        { processNestedWorklets: true },
-        'react-native-reanimated/plugin',
-      ], // Correct syntax
+        'module:react-native-dotenv',
+        {
+          moduleName: '@env',
+          path: '.env',
+        },
+      ],
+
+      // This is now the ONLY plugin needed for both Worklets and Reanimated.
+      // It should generally be the last plugin in the array.
+      'react-native-worklets/plugin', 
     ],
   };
 };

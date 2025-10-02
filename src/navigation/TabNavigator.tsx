@@ -1,25 +1,28 @@
+// TabNavigator.js
+
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import FooterTabs from '../component/layout/FooterTabs';
+import { View } from 'react-native';
 // Screens
 import ProfileScreen from '../screens/(home)/ProfileScreen';
-
-import { View } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {
   return (
     <Tab.Navigator
-      tabBar={props => <FooterTabs {...props} />}
-      screenOptions={{ headerShown: false }}
+      // 1. REMOVE the tabBar prop
+      // tabBar={props => <SecondaryHeader {...props} />}
+
+      screenOptions={{
+        headerShown: false,
+        // 2. HIDE the default tab bar that would otherwise appear
+        tabBarStyle: { display: 'none' },
+      }}
     >
-      {/* <Tab.Screen name="Chat" component={ChatListScreen} /> */}
-      <Tab.Screen name='Profile' component={ProfileScreen} />
-      {/* Add more screens as needed */}
+      <Tab.Screen name='Chat' component={ProfileScreen} />
       <Tab.Screen name='Calls' component={() => <View />} />
       <Tab.Screen name='Status' component={() => <View />} />
-      <Tab.Screen name='Contacts' component={() => <View />} />
     </Tab.Navigator>
   );
 }

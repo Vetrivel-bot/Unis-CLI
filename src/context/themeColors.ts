@@ -30,10 +30,10 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
   },
   dark: {
     // Core Palette
-    background: '#111814',      // A deep, immersive dark green
+    background: '#000000ff',      // A deep, immersive dark green
     text: '#e3e5e2',            // Soft white for easy reading
     textSecondary: '#8f988e',   // Muted gray-green
-    primary: '#34d399',         // A bright mint for excellent contrast
+    primary: '#0056b8ff',         // A bright mint for excellent contrast
     secondary: '#94a3b8',       // The light version of the slate blue
     accent: '#fcd34d',          // A strong, vibrant gold
     card: '#1c2521',            // Dark, low-contrast card background
@@ -46,13 +46,13 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     error: '#f87171',
 
     // Glassmorphism Effect
-    glassBackground: 'rgba(28, 37, 33, 0.6)',
+    glassBackground: 'rgba(5, 3, 14, 1)',
     glassBorder: 'rgba(255, 255, 255, 0.1)',
     glassShadow: 'rgba(0, 0, 0, 0.3)',
 
     // Chat-Specific Colors
-    chatBubbleOutgoing: '#1e403a',
-    chatBubbleIncoming: '#27322d',
+    chatBubbleOutgoing: '#133fffff',
+    chatBubbleIncoming: '#2d2c2cff',
     onlineIndicator: '#34d399',
   },
 };
