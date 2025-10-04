@@ -1,36 +1,60 @@
 // src/components/Chat/MessageList.tsx
 import React, { useEffect, useRef } from 'react';
-import { FlatList, StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { Message } from '../../../types/chat'; // CHANGED: Import shared type
-
-// CHANGED: Import all bubble components
+import {
+  FlatList,
+  StyleSheet,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  ViewToken,
+} from 'react-native';
+import { Message } from '../../../types/chat';
 import TextBubble from './Bubble/TextBubble';
 import ImageBubble from './Bubble/ImageBubble';
-// import AudioBubble from './Bubble/AudioBubble'; // You can create and import more
 
-// Your MessageListProps now uses the imported Message type
 interface MessageListProps {
   messages: Message[];
   headerHeight?: number;
   footerHeight?: number;
+  onMessagesViewed?: (ids: string[]) => void; // NEW: callback when messages become viewable
 }
 
 const MessageList: React.FC<MessageListProps> = ({
   messages,
   headerHeight = 0,
   footerHeight = 0,
+  onMessagesViewed,
 }) => {
-  const flatListRef = useRef<FlatList<Message> | null>(null); // This useEffect block is unchanged
+  const flatListRef = useRef<FlatList<Message> | null>(null);
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToOffset({ offset: 0, animated: true });
     }
-  }, [messages]); // --- RENDERITEM LOGIC IS UPDATED ---
+  }, [messages]);
+
+  // We want to consider an item "viewed" when at least 80% of it is visible
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+    waitForInteraction: false,
+  }).current;
+
+  // callback ref to avoid re-creating the function each render
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<ViewToken> }) => {
+      if (!onMessagesViewed || !viewableItems || viewableItems.length === 0) return;
+
+      // collect ids of viewable items that are fully loaded and have ids
+      const visibleIds = viewableItems.map(v => v.item?.id).filter(Boolean) as string[];
+
+      if (visibleIds.length > 0) {
+        onMessagesViewed(visibleIds);
+      }
+    },
+  ).current;
 
   const renderItem = ({ item }: { item: Message }) => {
     let content;
-
     switch (item.contentType) {
       case 'text':
         content = <TextBubble text={item.text} type={item.type} status={item.status} />;
@@ -41,11 +65,8 @@ const MessageList: React.FC<MessageListProps> = ({
       default:
         content = <TextBubble text='Unsupported message type.' type={item.type} />;
     }
-
-    // Wrap the content in a View and apply margin
-    // Since the list is inverted, marginBottom adds space "above" the item.
     return <View style={{ marginBottom: 18 }}>{content}</View>;
-  }; // This return block is unchanged
+  };
 
   return (
     <KeyboardAvoidingView
@@ -53,7 +74,6 @@ const MessageList: React.FC<MessageListProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={headerHeight}
     >
-      {' '}
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -66,14 +86,15 @@ const MessageList: React.FC<MessageListProps> = ({
         }}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
-        // inverted={true}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={7}
         removeClippedSubviews={true}
         keyboardShouldPersistTaps='handled'
         keyboardDismissMode='on-drag'
-      />{' '}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+      />
     </KeyboardAvoidingView>
   );
 };

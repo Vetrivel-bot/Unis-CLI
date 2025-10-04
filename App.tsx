@@ -1,5 +1,6 @@
+// App.js
 import React from 'react';
-import { StyleSheet, ImageBackground } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +9,8 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { AppProvider } from './src/context/AppContext';
 import Icon from 'react-native-vector-icons/Feather';
 import { SocketProvider } from './src/context/SocketContext';
+import { KeystoreProvider } from './src/context/KeystoreContext';
+
 Icon.loadFont(); // call once at app start (important for RN CLI)
 
 function AppContainer() {
@@ -27,25 +30,22 @@ function AppContainer() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <ThemeProvider>
-        <SocketProvider>
-          <SafeAreaProvider>
-            <AppContainer />
-          </SafeAreaProvider>
-        </SocketProvider>
-      </ThemeProvider>
-    </AppProvider>
+    <KeystoreProvider>
+      <AppProvider>
+        <ThemeProvider>
+          <SocketProvider>
+            <SafeAreaProvider>
+              <AppContainer />
+            </SafeAreaProvider>
+          </SocketProvider>
+        </ThemeProvider>
+      </AppProvider>
+    </KeystoreProvider>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  background: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
   },
 });

@@ -6,8 +6,8 @@ import RecentChatCard from '../ui/Home/RecentChatCard';
 // Mock chats data
 const mockChats = [
   {
-    id: '1',
-    name: 'Eugene Hanson',
+    id: 'user-uuid-123456',
+    name: 'zxcvb',
     lastMessage: 'Hey! How are you?',
     timestamp: '9:41 AM',
     unreadCount: 2,
@@ -15,8 +15,8 @@ const mockChats = [
     avatarUrl: 'https://picsum.photos/100/100?random=1',
   },
   {
-    id: '2',
-    name: 'Lauren Spencer',
+    id: '23654e3c-905e-491b-a6dc-27fb05bfcf32',
+    name: 'qwerty',
     lastMessage: 'I am fine, what about you?',
     timestamp: '9:38 AM',
     unreadCount: 0,

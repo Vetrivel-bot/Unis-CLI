@@ -7,6 +7,7 @@ import MainTabs from './TabNavigator';
 import AuthNavigator from './AuthNavigator';
 import HomeNavigator from './HomeNavigator'; // <-- make sure this exists
 import { useAppContext } from '../context/AppContext';
+import DevNavigator from './DevNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,8 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {/* <Stack.Screen name='Devflow' component={DevNavigator} /> */}
+
       {user ? (
         <>
           <Stack.Screen name='MainTabs' component={MainTabs} />

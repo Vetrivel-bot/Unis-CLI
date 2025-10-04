@@ -1,6 +1,6 @@
 // src/services/api.js
-// import { API_BASE_URL } from '@env'; // Import the URL from your .env file
-const API_BASE_URL = 'http://10.208.124.13:3000';
+import { API_BASE_URL } from '@env'; // Import the URL from your .env file
+// const API_BASE_URL = 'http://10.208.124.13:3000';
 /**
  * Sends a request to the backend to generate an OTP.
  */

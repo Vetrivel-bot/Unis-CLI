@@ -232,7 +232,9 @@ class SecureStorageModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun rotateMasterKey(promise: Promise) {
         try {
-            val oldPrefName = getCurrentPrefName()
+            // --- FIX: Store the old preference name BEFORE changing the metadata ---
+            val oldPrefNameToDelete = getCurrentPrefName()
+
             val newAlias = "master_" + System.currentTimeMillis().toString()
             val newPrefName = "${ctx.packageName}.secure_store_${System.currentTimeMillis()}"
 
@@ -262,11 +264,15 @@ class SecureStorageModule(reactContext: ReactApplicationContext) :
             }
             editor.commit()
 
+            // Now update the pointers
             setCurrentMasterAlias(newAlias)
             setCurrentPrefName(newPrefName)
 
+            // --- FIX: Delete the old file using the saved variable ---
             try {
-                ctx.deleteSharedPreferences(oldPrefName)
+                if (oldPrefNameToDelete != newPrefName) { // Safety check
+                    ctx.deleteSharedPreferences(oldPrefNameToDelete)
+                }
             } catch (ignored: Exception) {}
 
             promise.resolve(true)
@@ -279,12 +285,16 @@ class SecureStorageModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun migrateToStrongBoxIfAvailable(promise: Promise) {
         try {
+            // --- FIX: Store the old preference name BEFORE changing the metadata ---
+            val oldPrefNameToDelete = getCurrentPrefName()
+
             val newAlias = "master_sb_" + System.currentTimeMillis()
             val newPrefName = "${ctx.packageName}.secure_store_sb_${System.currentTimeMillis()}"
 
             val newMasterKey = try {
                 buildMasterKeyForAlias(newAlias, requestStrongBox = true)
             } catch (e: Exception) {
+                // Fallback to non-strongbox if it fails
                 buildMasterKeyForAlias(newAlias, requestStrongBox = false)
             }
 
@@ -311,11 +321,15 @@ class SecureStorageModule(reactContext: ReactApplicationContext) :
             }
             editor.commit()
 
+            // Now update the pointers to the new key and file
             setCurrentMasterAlias(newAlias)
             setCurrentPrefName(newPrefName)
 
+            // --- FIX: Delete the old file using the saved variable ---
             try {
-                ctx.deleteSharedPreferences(getCurrentPrefName())
+                if (oldPrefNameToDelete != newPrefName) { // Safety check
+                    ctx.deleteSharedPreferences(oldPrefNameToDelete)
+                }
             } catch (ignored: Exception) {}
 
             promise.resolve(true)
