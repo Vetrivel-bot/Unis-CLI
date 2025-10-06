@@ -40,6 +40,15 @@ class WireGuardVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "VPN Service starting...")
 
+        val action = intent?.action
+        when (action) {
+            "STOP_VPN" -> {
+                Log.i(TAG, "Received STOP_VPN action")
+                stopVpnConnection()
+                return START_NOT_STICKY
+            }
+        }
+
         val configText = intent?.getStringExtra("config") ?: run {
             Log.e(TAG, "No config provided")
             sendErrorNotification("VPN Config Missing")
@@ -75,6 +84,8 @@ class WireGuardVpnService : VpnService() {
             val config = Config.parse(BufferedReader(StringReader(configText)))
             backend = GoBackend(this)
 
+
+
             // Tunnel listener
             tunnel = object : Tunnel {
                 override fun getName() = "UnisWireGuardVPN"
@@ -83,7 +94,7 @@ class WireGuardVpnService : VpnService() {
                     Log.i(TAG, "Tunnel state changed to: $newState")
                     when (newState) {
                         State.UP -> {
-                            Log.i(TAG, "VPN connected")
+                            Log.i(TAG, "Tunnel is UP, VPN connected\"")
                             updateForegroundNotification("VPN Connected - Secured")
                             sendVpnState("CONNECTED")
                         }
@@ -133,10 +144,6 @@ class WireGuardVpnService : VpnService() {
             }
 
             // Routes
-            builder.addRoute("0.0.0.0", 0)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                builder.addRoute("::", 0)
-            }
 
             // Exclude RN packages in debug
             if (BuildConfig.DEBUG) {
@@ -168,42 +175,24 @@ class WireGuardVpnService : VpnService() {
         }
     }
 
+
+
+
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundService(content: String) {
         val notification = notificationManager.buildNotification(content)
 
-        // The third argument (foregroundServiceType) for startForeground was added in API 29.
-        // Specific type constants for this argument are best referenced from ServiceInfo.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29 for the 3-arg version
-            var foregroundServiceType = 0 // Default or invalid type
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API 31 (Android 12) for more robust type usage
-                // On Android 12+ it's good practice to provide the specific type.
-                foregroundServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            }
-            // For API 29 and 30, the manifest declaration is the primary driver for the type.
-            // You can still call the 3-argument version. If foregroundServiceType is 0,
-            // it behaves like the 2-argument version on those platforms,
-            // relying on the manifest.
-            // However, to be explicit, especially if ServiceInfo constants are not well-defined
-            // or behave differently pre-API 31 for this specific parameter,
-            // you might only use the 3-arg version with a specific type on S+.
-            if (foregroundServiceType != 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                startForeground(
-                    VpnNotificationManager.FOREGROUND_SERVICE_ID,
-                    notification,
-                    foregroundServiceType
-                )
-            } else {
-                // For Q and R, or if no specific type is determined for S+ (though it should be)
-                // Fallback to 2-argument version, relying on manifest type
-                startForeground(VpnNotificationManager.FOREGROUND_SERVICE_ID, notification)
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // SOLUTION: Change this to match the AndroidManifest.xml
+            val foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+            startForeground(VpnNotificationManager.FOREGROUND_SERVICE_ID, notification, foregroundServiceType)
         } else {
-            // Pre-Android 10 (API 29)
+            // Fallback for older Android versions
             startForeground(VpnNotificationManager.FOREGROUND_SERVICE_ID, notification)
         }
         Log.i(TAG, "Foreground service started: $content")
     }
+
 
 
     private fun updateForegroundNotification(content: String) {
@@ -226,31 +215,50 @@ class WireGuardVpnService : VpnService() {
             stateIntent.putExtra("state", state)
             stateIntent.setPackage(packageName)
             sendBroadcast(stateIntent)
+
+            VpnModule.instance?.sendEvent("VPN_STATE", state)
         } catch (ex: Exception) {
             Log.w(TAG, "Failed to broadcast VPN state: ${ex.message}", ex)
         }
     }
 
+    fun stopVpnConnection() {
+        Log.i(TAG, "Stopping VPN...")
+
+        try {
+            // 1️⃣ Change tunnel state to DOWN
+            tunnel?.let {
+                Log.i(TAG, "Bringing tunnel down...")
+                backend?.setState(it, State.DOWN, null)
+                sendVpnState("DISCONNECTED")
+            }
+
+            // 2️⃣ Close the VPN interface
+            vpnInterface?.close()
+            vpnInterface = null
+            Log.i(TAG, "VPN interface closed")
+
+            notificationManager.cancelNotification(this)
+
+            // 4️⃣ Stop the service
+            stopSelf()
+            Log.i(TAG, "VPN service stopped successfully")
+
+        } catch (ex: Exception) {
+            Log.e(TAG, "Error stopping VPN: ${ex.message}", ex)
+            sendVpnState("ERROR_STOPPING_VPN")
+        }
+    }
+
     override fun onDestroy() {
         Log.i(TAG, "VPN Service destroyed")
+
+        stopVpnConnection()
         sendVpnState("DISCONNECTED")
 
-        try {
-            tunnel?.let {
-                backend?.setState(it, State.DOWN, null)
-            }
-        } catch (ex: Exception) {
-            Log.w(TAG, "Error stopping tunnel: ${ex.message}")
-        }
 
-        try {
-            vpnInterface?.close()
-        } catch (ex: Exception) {
-            Log.w(TAG, "Error closing interface: ${ex.message}")
-        }
 
         stopForeground(true)
-        notificationManager.cancelNotification(this)
         super.onDestroy()
     }
 

@@ -11,15 +11,24 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.unis.vpn.IpChecker.checkPublicIp
 
 class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
     private val TAG = "VpnModule"
     private val context = reactContext
 
+    init {
+        instance = this
+    }
+
+    companion object {
+        var instance: VpnModule? = null
+    }
+
     override fun getName() = "VpnModule"
 
-    private fun sendEvent(eventName: String, params: String) {
+    fun sendEvent(eventName: String, params: String) {
         try {
             context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 .emit(eventName, params)
@@ -72,7 +81,9 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
                 Log.i(TAG, "Started MainActivity for VPN permission request")
             } else {
                 // Permission already granted - start service directly
+                checkPublicIp() 
                 startVpnService(config)
+                checkPublicIp() 
             }
         } catch (ex: Exception) {
             Log.e(TAG, "Failed to start VPN: ${ex.message}")
@@ -85,8 +96,9 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         Log.i(TAG, "Stopping VPN")
         try {
             val intent = Intent(context, WireGuardVpnService::class.java)
-            context.stopService(intent)
-            sendEvent("VPN_STATUS", "STOPPED")
+            intent.action = "STOP_VPN" // 🔑 Send stop action
+
+            context.startService(intent)
         } catch (ex: Exception) {
             Log.e(TAG, "Failed to stop VPN: ${ex.message}")
             sendEvent("VPN_ERROR", "Failed to stop VPN: ${ex.message}")

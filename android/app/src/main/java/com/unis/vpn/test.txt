@@ -1,0 +1,239 @@
+package com.unis.vpn
+import android.app.Activity
+import android.content.Context
+import com.wireguard.android.backend.Backend
+import com.wireguard.config.Config
+import kotlinx.coroutines.*
+
+
+class WireguardManager(private val context: Context, private val activity: Activity?) {
+    private val scope = CoroutineScope(Job() + Dispatchers.Main.immediate)
+    private var backend: Backend? = null
+    private var tunnelName: String = "wg_default"
+    private var config: Config? = null
+    private var tunnel: WireGuardTunnel? = null
+    private val futureBackend = CompletableDeferred<Backend>()
+    private val TAG = "WireguardManager"
+
+    companion object {
+        private var state: VPNStatus = VPNStatus.NO_CONNECTION
+    }
+
+    init {
+        scope.launch(Dispatchers.IO) {
+            try {
+                cachedTunnelData = SharedPreferenceHelper.getVpnData()
+                backend = GoBackend(context)
+                futureBackend.complete(backend!!)
+                activity?.let { GoBackend.VpnService.prepare(it) }
+            } catch (e: Throwable) {
+                Log.e(TAG, "ERROR: Exception during WireguardManager initialization: ${e.localizedMessage}")
+                Log.e(TAG, Log.getStackTraceString(e))
+            }
+        }
+    }
+
+    // Remaining code
+
+    /**
+     * Generates WireGuard configuration from the provided ServerInfo.
+     * This creates a wg-quick compatible configuration for the VPN tunnel.
+     */
+    private fun getConfigData(tunnelData: ServerInfo): Config {
+        val wgQuickConfig = """
+            [Interface]
+            Address = ${tunnelData.interfaceAddress ?: ""}
+            DNS = ${tunnelData.interfaceDns ?: ""}
+            PrivateKey = ${tunnelData.interfacePrivateKey ?: ""}
+
+            [Peer]
+            PublicKey = ${tunnelData.peerPublicKey ?: ""}
+            PresharedKey = ${tunnelData.peerPresharedKey ?: ""}
+            AllowedIPs = ${tunnelData.peerAllowedIPs ?: ""}
+            Endpoint = ${tunnelData.peerEndpoint ?: ""}
+            PersistentKeepalive = ${tunnelData.peerPersistentKeepalive ?: ""}
+        """.trimIndent()
+
+        val inputStream = ByteArrayInputStream(wgQuickConfig.toByteArray())
+        return Config.parse(inputStream)
+    }
+
+    /**
+     * Checks if any VPN connection is currently active on the device.
+     * Returns `true` if a VPN connection is detected, otherwise `false`.
+     */
+    val isVpnActive: Boolean
+        get() {
+            return try {
+                val connectivityManager =
+                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+                val activeNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    connectivityManager.activeNetwork ?: return false
+                } else {
+                    // For Android < 6.0, use the old method
+                    val networkInfo = connectivityManager.activeNetworkInfo
+                    return networkInfo != null && networkInfo.type == ConnectivityManager.TYPE_VPN
+                }
+
+                val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+
+                // Check if any VPN is active
+                networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            } catch (e: Exception) {
+                Log.e(TAG, "isVpnActive - ERROR - ${e.localizedMessage}", e)
+                false
+            }
+        }
+
+    /**
+     * Retrieves an existing WireGuard tunnel or creates a new one if none exists.
+     * The `callback` function listens for state changes in the tunnel.
+     */
+    private fun getTunnel(name: String, callback: StateChangeCallback? = null): WireGuardTunnel {
+        if (tunnel == null) {
+            tunnel = WireGuardTunnel(name, callback)
+        }
+        return tunnel as WireGuardTunnel
+    }
+
+    /**
+     * Updates the VPN status based on the tunnel's state.
+     * Runs on the main thread to ensure UI updates happen smoothly.
+     */
+    private fun updateStageFromState(state: Tunnel.State) {
+        scope.launch(Dispatchers.Main) {
+            when (state) {
+                Tunnel.State.UP -> updateStage(VPNStatus.CONNECTED)      // VPN is active
+                Tunnel.State.DOWN -> updateStage(VPNStatus.DISCONNECTED) // VPN is disconnected
+                else -> updateStage(VPNStatus.NO_CONNECTION)             // No active VPN connection
+            }
+        }
+    }
+
+    /**
+     * Sets the VPN status and saves it in shared preferences.
+     * Ensures status updates run on the main thread.
+     */
+    private fun updateStage(stage: VPNStatus?) {
+        scope.launch(Dispatchers.Main) {
+            val updatedStage = stage ?: VPNStatus.NO_CONNECTION
+            state = updatedStage
+            // Store VPN status in SharedPreferences if required
+        }
+    }
+
+    /**
+     * Returns the VPN status based on the tunnel's state.
+     */
+    fun getStatus(): VPNStatus {
+        return state
+    }
+
+
+    /**
+     * Starts the VPN connection process.
+     * Initializes the tunnel and attempts to connect.
+     */
+    fun start(tunnelData: ServerInfo) {
+        initialize(tunnelName)
+        connect(tunnelData)
+    }
+
+    /**
+     * Initializes the tunnel with a given name.
+     * Ensures the tunnel name is valid before proceeding.
+     */
+    private fun initialize(localizedDescription: String) {
+        if (Tunnel.isNameInvalid(localizedDescription)) {
+            Log.e(TAG, "Invalid Tunnel Name: $localizedDescription")
+            return
+        }
+        tunnelName = localizedDescription
+    }
+
+    /**
+     * Connects to the VPN using the provided tunnel configuration.
+     * Updates VPN status at different stages of the connection process.
+     */
+    private fun connect(tunnelData: ServerInfo) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                updateStage(VPNStatus.PREPARE) // Preparing VPN connection
+
+                // Generate WireGuard configuration
+                config = getConfigData(tunnelData)
+                updateStage(VPNStatus.CONNECTING) // Attempting to connect
+
+                // Retrieve or create the WireGuard tunnel
+                val tunnel = getTunnel(tunnelName) { state ->
+                    scope.launch {
+                        Log.i(TAG, "onStateChange - $state")
+                        updateStageFromState(state)
+                    }
+                }
+
+                // Activate the VPN connection
+                futureBackend.await().setState(tunnel, Tunnel.State.UP, config)
+
+                scope.launch(Dispatchers.Main) {
+                    updateStage(VPNStatus.CONNECTED) // VPN is successfully connected
+                    // Store VPN status in SharedPreferences if required
+                }
+
+                Log.i(TAG, "Connect - success!")
+            } catch (e: Throwable) {
+                updateStage(VPNStatus.NO_CONNECTION) // Failed to establish a connection
+                Log.e(TAG, "Connect - ERROR - ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Stops the VPN connection by calling the disconnect method.
+     */
+    fun stop() {
+        disconnect()
+    }
+
+    /**
+     * Disconnects the active VPN tunnel.
+     * - If no tunnel is running, logs an error.
+     * - Updates VPN status before and after disconnection.
+     * - Handles reconnection if cached tunnel data exists.
+     */
+    private fun disconnect() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                // Check if any tunnel is currently running
+                if (futureBackend.await().runningTunnelNames.isEmpty()) {
+                    throw Exception("Tunnel is not running")
+                }
+
+                updateStage(VPNStatus.DISCONNECTING)
+
+                // Retrieve the active tunnel and monitor state changes
+                val tunnel = getTunnel(tunnelName) { state ->
+                    scope.launch {
+                        Log.i(TAG, "onStateChange - $state")
+                        updateStageFromState(state)
+                    }
+                }
+
+                // Set the tunnel state to DOWN to disconnect
+                futureBackend.await().setState(tunnel, Tunnel.State.DOWN, config)
+
+                // Update VPN status and shared preferences on the main thread
+                scope.launch(Dispatchers.Main) {
+                    updateStage(VPNStatus.DISCONNECTED)
+                    // Store VPN status in SharedPreferences if required
+                }
+                Log.i(TAG, "Disconnect - success!")
+            } catch (e: Throwable) {
+                Log.e(TAG, "Disconnect - ERROR - ${e.message}")
+            }
+        }
+    }
+
+
+}
