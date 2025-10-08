@@ -9,7 +9,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     primary: '#0d9488',         // A vibrant, modern teal/emerald
     secondary: '#475569',       // A professional slate blue for harmony
     accent: '#facc15',          // A bright, clean sunflower gold
-    card: '#ffffff',            // Clean and crisp
+    card: '#000000',            // Clean and crisp
     cardSecondary: '#f5f5f4',   // For subtle UI differentiation
     border: '#e7e5e4',          // Soft and unobtrusive
 

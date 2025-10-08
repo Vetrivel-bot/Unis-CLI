@@ -2,11 +2,15 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ThemeDemoScreen from '../screens/ThemeDemoScreen';
 import SecureStorageScreen from '../screens/SecureStorageScreen';
+import HmacTestScreen from '../screens/HmacTestScreen';
+
 const Stack = createNativeStackNavigator();
 
 const DevNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name='HmacTest' component={HmacTestScreen} />
+
       <Stack.Screen name='SecureStorage' component={SecureStorageScreen} />
 
       <Stack.Screen name='ThemeDemo' component={ThemeDemoScreen} />

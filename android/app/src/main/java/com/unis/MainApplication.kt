@@ -10,19 +10,23 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.defaults.DefaultReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.unis.vpn.VpnPackage
-import com.unis.storage.SecureStoragePackage
+import com.unis.keystore.SecureStoragePackage
+import com.unis.storage.HmacPackage
 
 class MainApplication : Application(), ReactApplication {
 
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
-            override fun getPackages(): List<ReactPackage> =
-                PackageList(this).packages.apply {
-                    add(HelloPackage())             // manually added HelloModule
-                    add(ScreenSecurityPackage())    // manually added secure module
-                    add(VpnPackage())   
-                   add(SecureStoragePackage())              // manually added VPN package
-                }
+            override fun getPackages(): List<ReactPackage> {
+                // convert to mutable list so we can add packages manually
+                val packages = PackageList(this).packages.toMutableList()
+                packages.add(HelloPackage())             // manually added HelloModule
+                packages.add(ScreenSecurityPackage())    // manually added secure module
+                packages.add(VpnPackage())
+                packages.add(SecureStoragePackage())
+              //  packages.add(HmacPackage())              // add HmacPackage properly
+                return packages
+            }
 
             override fun getJSMainModuleName(): String = "index"
 
