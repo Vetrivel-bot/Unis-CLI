@@ -25,6 +25,7 @@ class WireGuardVpnService : VpnService() {
     private var backend: GoBackend? = null
     private var tunnel: Tunnel? = null
     private lateinit var notificationManager: VpnNotificationManager
+    private var currentVpnState: String = "DISCONNECTED"
 
     companion object {
         private const val TAG = "UnisWireGuardVPN"
@@ -116,14 +117,12 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-            // Start tunnel
-            backend?.setState(tunnel!!, State.UP, config)
-
-            // Build VPN interface
+// Build VPN interface
             val builder = Builder()
             builder.setSession("UnisWireGuardVPN")
+            builder.setMtu(1280)
 
-            // Add addresses
+// Add addresses
             config.`interface`.addresses.forEach { addr ->
                 try {
                     builder.addAddress(addr.address.hostAddress, addr.mask)
@@ -133,7 +132,7 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-            // Add DNS
+// Add DNS
             config.`interface`.dnsServers.forEach { dns ->
                 try {
                     builder.addDnsServer(dns.hostAddress)
@@ -143,29 +142,44 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-            // Routes
+// 🛑 REMOVE or COMMENT OUT the universal routes for split tunneling:
+            // builder.addRoute("0.0.0.0", 0)
+            // try {
+            //     builder.addRoute("::", 0)
+            // } catch (ex: Exception) {
+            //     Log.w(TAG, "IPv6 route not added: ${ex.message}")
+            // }
 
-            // Exclude RN packages in debug
-            if (BuildConfig.DEBUG) {
-                try {
-                    builder.addDisallowedApplication("com.facebook.react")
-                    builder.addDisallowedApplication("com.facebook.react.devsupport")
-                    builder.addDisallowedApplication("com.facebook.react.packagerconnection")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to exclude React Native packages: ${e.message}")
-                }
-            }
-
-            // Allow our app
+            // ✅ ADD: Only allow your app's traffic
+            val packageName = "com.unis" // Replace with the actual package name of the app(s) you want to route
             try {
-                builder.addAllowedApplication("com.unis")
-                Log.i(TAG, "Allowed app: com.unis")
+                builder.addAllowedApplication(packageName)
+                Log.i(TAG, "Allowed app for split tunnel: $packageName")
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to allow app com.unis: ${e.message}")
+                // This is unlikely to fail for your own package
+                Log.e(TAG, "Failed to add allowed application $packageName: ${e.message}", e)
+                sendErrorNotification("VPN Error: Cannot allow app traffic")
+                sendVpnState("ERROR: Cannot allow app traffic")
+                stopSelf()
+                return // Stop execution if we can't set the rule
             }
 
+            // Establish the VPN interface
             vpnInterface = builder.establish()
-            Log.i(TAG, "VPN interface established")
+
+            if (vpnInterface != null) {
+                Log.i(TAG, "VPN interface established")
+
+                // Now bring the WireGuard backend UP
+                Log.i(TAG, "Setting WireGuard tunnel UP...")
+                val result = backend?.setState(tunnel!!, State.UP, config)
+                Log.i(TAG, "WireGuard backend result: $result")
+            } else {
+                Log.e(TAG, "Failed to establish VPN interface (null)")
+                sendErrorNotification("VPN Error: Interface failed")
+                sendVpnState("ERROR: Interface failed")
+                stopSelf()
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error starting VPN: ${e.message}", e)
@@ -213,6 +227,7 @@ class WireGuardVpnService : VpnService() {
             Log.d(TAG, "Broadcasting VPN state: $state")
             val stateIntent = Intent("com.unis.vpn.STATE_CHANGED")
             stateIntent.putExtra("state", state)
+            currentVpnState = state
             stateIntent.setPackage(packageName)
             sendBroadcast(stateIntent)
 
@@ -249,6 +264,11 @@ class WireGuardVpnService : VpnService() {
             sendVpnState("ERROR_STOPPING_VPN")
         }
     }
+
+    private fun getVpnState(): String {
+        return currentVpnState
+    }
+
 
     override fun onDestroy() {
         Log.i(TAG, "VPN Service destroyed")

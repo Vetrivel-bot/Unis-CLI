@@ -17,6 +17,7 @@ class VpnNotificationManager(private val context: Context) {
         const val FOREGROUND_SERVICE_ID = 12345
     }
 
+
     init { createNotificationChannel() }
 
     private fun createNotificationChannel() {

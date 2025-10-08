@@ -1,22 +1,29 @@
 package com.unis.vpn
 
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
 import android.net.VpnService
+import android.util.Log
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.unis.vpn.IpChecker.checkPublicIp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
     private val TAG = "VpnModule"
     private val context = reactContext
+    private var lastVpnState: String? = null
 
     init {
         instance = this
@@ -32,6 +39,7 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         try {
             context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 .emit(eventName, params)
+            Log.d(TAG, "Sent event $eventName: $params")
         } catch (ex: Exception) {
             Log.w(TAG, "Failed to send event $eventName: ${ex.message}")
         }
@@ -40,7 +48,9 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
     private val vpnStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val state = intent?.getStringExtra("state") ?: "UNKNOWN"
+            lastVpnState = state
             sendEvent("VPN_STATE", state)
+            Log.i(TAG, "Received VPN state: $state")
         }
     }
 
@@ -49,6 +59,7 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         try {
             val filter = IntentFilter("com.unis.vpn.STATE_CHANGED")
             context.registerReceiver(vpnStateReceiver, filter)
+            Log.i(TAG, "Registered VPN state receiver")
         } catch (ex: Exception) {
             Log.w(TAG, "Failed to register receiver: ${ex.message}")
         }
@@ -58,6 +69,7 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         super.invalidate()
         try {
             context.unregisterReceiver(vpnStateReceiver)
+            Log.i(TAG, "Unregistered VPN state receiver")
         } catch (ex: Exception) {
             Log.w(TAG, "Failed to unregister receiver: ${ex.message}")
         }
@@ -69,21 +81,19 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         try {
             val prepareIntent = VpnService.prepare(context)
             if (prepareIntent != null) {
-                // Need to request VPN permission - start MainActivity to handle it
                 sendEvent("VPN_STATUS", "PERMISSION_REQUESTED")
-                
                 val intent = Intent(context, com.unis.MainActivity::class.java)
                 intent.putExtra("vpn_action", "request_permission")
                 intent.putExtra("config", config)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
-                
                 Log.i(TAG, "Started MainActivity for VPN permission request")
             } else {
-                // Permission already granted - start service directly
-                checkPublicIp() 
                 startVpnService(config)
-                checkPublicIp() 
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    waitForVpnConnection()
+                }
             }
         } catch (ex: Exception) {
             Log.e(TAG, "Failed to start VPN: ${ex.message}")
@@ -95,10 +105,19 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
     fun stopVpn() {
         Log.i(TAG, "Stopping VPN")
         try {
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val isServiceRunning = activityManager.getRunningServices(Integer.MAX_VALUE)
+                .any { it.service.className == WireGuardVpnService::class.java.name }
+            if (!isServiceRunning) {
+                Log.w(TAG, "VPN service is not running")
+                sendEvent("VPN_STATUS", "ALREADY_STOPPED")
+                return
+            }
             val intent = Intent(context, WireGuardVpnService::class.java)
-            intent.action = "STOP_VPN" // 🔑 Send stop action
-
+            intent.action = "STOP_VPN"
             context.startService(intent)
+            Log.i(TAG, "stopService vpn")
+
         } catch (ex: Exception) {
             Log.e(TAG, "Failed to stop VPN: ${ex.message}")
             sendEvent("VPN_ERROR", "Failed to stop VPN: ${ex.message}")
@@ -128,5 +147,16 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
             Log.e(TAG, "Failed to start VPN service: ${ex.message}")
             sendEvent("VPN_ERROR", "Failed to start VPN service: ${ex.message}")
         }
+    }
+
+    private suspend fun waitForVpnConnection() {
+
+        val timeout = System.currentTimeMillis() + 60000*5 // 5 min max wait
+        while (System.currentTimeMillis() < timeout) {
+            delay(500)
+
+            checkPublicIp()
+        }
+
     }
 }

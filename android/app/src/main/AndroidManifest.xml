@@ -40,15 +40,15 @@
             android:theme="@style/AppTheme.Transparent" />
 
 
-        <!-- WireGuard VPN Service -->
-        <service
-            android:name="com.wireguard.android.backend.GoBackend$VpnService"
-            android:permission="android.permission.BIND_VPN_SERVICE"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.net.VpnService" />
-            </intent-filter>
-        </service>
+<!--        &lt;!&ndash; WireGuard VPN Service &ndash;&gt;-->
+<!--        <service-->
+<!--            android:name="com.wireguard.android.backend.GoBackend$VpnService"-->
+<!--            android:permission="android.permission.BIND_VPN_SERVICE"-->
+<!--            android:exported="false">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.net.VpnService" />-->
+<!--            </intent-filter>-->
+<!--        </service>-->
         <!-- VPN Service -->
         <service
             android:name=".vpn.WireGuardVpnService"
