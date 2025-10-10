@@ -60,7 +60,10 @@ export const verifyOtpApi = async (phone, otp, deviceId, deviceName, publicKey, 
 /**
  * Authenticate endpoint used to fetch the user's server-side profile and contacts.
  * Sends Authorization header (Bearer token) and includes publicKey in body for server to update/verify.
+ * ALSO sends required device headers x-device-id and x-device-name.
  */
+// services/api.js (excerpt)
+// services/api.js (AuthenticateApi)
 export const AuthenticateApi = async (
   accessToken,
   refreshToken,
@@ -70,13 +73,22 @@ export const AuthenticateApi = async (
   publicKey,
 ) => {
   const endpoint = `${API_BASE_URL}/api/auth`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (refreshToken) headers['x-refresh-token'] = refreshToken;
+  if (deviceId) headers['x-device-id'] = deviceId;
+  if (deviceName) headers['x-device-name'] = deviceName;
+
+  const body = { phone, deviceId, deviceName, publicKey };
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
-    },
-    body: JSON.stringify({ phone, deviceId, deviceName, publicKey }),
+    headers,
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -85,5 +97,6 @@ export const AuthenticateApi = async (
   }
 
   const data = await response.json();
+  console.log('AuthenticateApi response:', data);
   return data;
 };

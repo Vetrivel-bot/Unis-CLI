@@ -1,14 +1,14 @@
+// src/database/models/Contact.js
 import { Model } from '@nozbe/watermelondb';
-import { field, text } from '@nozbe/watermelondb/decorators';
+import { text, field } from '@nozbe/watermelondb/decorators';
 
 export default class Contact extends Model {
   static table = 'contacts';
 
-  // This ID is from your backend API, used for unique identification
-  @text('contact_id') contactId;
-
-  @text('alias') alias;
-  @text('phone') phone;
+  @text('username') username;
   @text('public_key') publicKey;
-  @field('added_at') addedAt;
+  @text('phone') phone; // if you add phone column to schema
+  @field('last_seen') lastSeen;
+  // if you added an 'added_at' number column in schema:
+  // @field('added_at') addedAt;
 }

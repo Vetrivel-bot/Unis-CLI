@@ -21,7 +21,8 @@ const OtpVerificationScreen = () => {
   const navigation = useNavigation();
   const { phone } = route.params || {};
 
-  const { deviceId, deviceName, signInWithTokens } = useAppContext();
+  // get functions from AppContext
+  const { deviceId, deviceName, signInWithTokens, setPhone } = useAppContext();
 
   // Optional: you may capture pushToken/publicKey here and pass them in verifyOtpApi
   const [pushToken, setPushToken] = useState(null);
@@ -55,6 +56,14 @@ const OtpVerificationScreen = () => {
 
       // Save tokens & user via AppContext helper (saves securely & sets user)
       await signInWithTokens({ accessToken, refreshToken }, user);
+
+      // Persist phone into keystore via AppContext helper
+      try {
+        // setPhone will persist phone in keystore and update context state
+        if (typeof setPhone === 'function') await setPhone(phone);
+      } catch (err) {
+        console.warn('[OtpVerificationScreen] failed to persist phone to keystore', err);
+      }
 
       Alert.alert('Success!', `Welcome, ${user?.phone ?? 'user'}`);
 
