@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   chatList: {
     flex: 1,
-    backgroundColor: '#222228ff',
+    backgroundColor: '#101012ff',
     top: 120,
     zIndex: 102,
     borderTopRightRadius: 40,

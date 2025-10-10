@@ -26,16 +26,16 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name='Devflow' component={DevNavigator} />
+      {/* <Stack.Screen name='Devflow' component={DevNavigator} /> */}
 
-      {/* {user ? (
+      {user ? (
         <>
           <Stack.Screen name='MainTabs' component={MainTabs} />
           <Stack.Screen name='HomeFlow' component={HomeNavigator} />
         </>
       ) : (
         <Stack.Screen name='AuthFlow' component={AuthNavigator} />
-      )} */}
+      )}
     </Stack.Navigator>
   );
 }

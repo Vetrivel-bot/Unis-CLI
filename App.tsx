@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, AppState } from 'react-native'; // Added AppState
 import { ThemeProvider } from './src/context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -12,9 +12,9 @@ import { KeystoreProvider } from './src/context/KeystoreContext';
 import { FileEncryptionProvider } from './src/context/FileEncryptionContext';
 // --- Imports for Database Setup ---
 import { Database } from '@nozbe/watermelondb';
-import { setupDatabase } from './src/database';
+import { setupDatabase, forceCheckpoint } from './src/database'; // Added forceCheckpoint
 import { DatabaseProvider } from './src/context/DatabaseContext';
-import Spinner from './src/component/Spinner'; // Assuming you have a loading spinner component
+import Spinner from './src/component/Spinner';
 
 Icon.loadFont(); // call once at app start (important for RN CLI)
 
@@ -46,6 +46,23 @@ export default function App() {
 
     initDatabase();
   }, []);
+
+  // --- NEW ---
+  // This effect listens for app state changes to run the checkpoint.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      // If the app is going into the background and the database is ready
+      if (nextAppState === 'background' && database) {
+        console.log('[App.js] App is going to background. Clearing temporary DB log...');
+        forceCheckpoint(database);
+      }
+    });
+
+    // Cleanup the event listener when the component unmounts
+    return () => {
+      subscription.remove();
+    };
+  }, [database]); // The effect depends on the database instance
 
   // While the database is being set up, show a loading screen.
   if (!database) {

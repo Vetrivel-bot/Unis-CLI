@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Keyboard,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useIsFocused } from '@react-navigation/native';
 import ProfileHeader from '../../component/layout/ProfileHeader';
@@ -7,7 +15,6 @@ import { useThemeColors } from '../../context/themeColors';
 import MessageList from '../../component/ui/Chat/Messagelist';
 import MessageBox from '../../component/Chat/MessageBox';
 import { AppEventEmitter } from '../../services/EventEmitter';
-// +++ Import the new service functions +++
 import { sendMessage, markAsDelivered, markAsRead } from '../../services/messageService';
 
 export default function ChatScreen() {
@@ -19,6 +26,7 @@ export default function ChatScreen() {
 
   const deliveredRef = useRef(new Set());
   const readRef = useRef(new Set());
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const [messages, setMessages] = useState([
     {
@@ -38,6 +46,15 @@ export default function ChatScreen() {
     },
   ]);
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardOpen(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardOpen(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const markDeliveredLocally = useCallback(msgId => {
     setMessages(prev => prev.map(m => (m.id === msgId ? { ...m, status: 'delivered' } : m)));
     deliveredRef.current.add(msgId);
@@ -49,27 +66,24 @@ export default function ChatScreen() {
     deliveredRef.current.add(msgId);
   }, []);
 
-  // --- REFACTORED to use the service ---
   const emitDelivered = useCallback(
     msgId => {
       if (!msgId || deliveredRef.current.has(msgId)) return;
-      markAsDelivered(msgId); // Use the service
+      markAsDelivered(msgId);
       markDeliveredLocally(msgId);
     },
-    [markDeliveredLocally], // No longer depends on socket
+    [markDeliveredLocally],
   );
 
-  // --- REFACTORED to use the service ---
   const emitRead = useCallback(
     msgId => {
       if (!msgId || readRef.current.has(msgId)) return;
-      markAsRead(msgId); // Use the service
+      markAsRead(msgId);
       markReadLocally(msgId);
     },
-    [markReadLocally], // No longer depends on socket
+    [markReadLocally],
   );
 
-  // This useEffect now subscribes to our local emitter instead of the raw socket.
   useEffect(() => {
     const onChatMessage = msg => {
       if (!msg) return;
@@ -106,7 +120,6 @@ export default function ChatScreen() {
     };
   }, [chatId, isFocused, emitDelivered, emitRead]);
 
-  // This effect for handling already-loaded messages is still needed.
   useEffect(() => {
     if (!isFocused) return;
     messages
@@ -131,7 +144,6 @@ export default function ChatScreen() {
     [messages, emitRead],
   );
 
-  // --- REFACTORED to be async and use the service ---
   const handleSendMessage = async text => {
     if (!text?.trim()) return;
 
@@ -158,26 +170,36 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ProfileHeader
-        title={chatName}
-        avatarUrl={avatarUrl}
-        screen='ChatScreen'
-        onPressAvatar={() => {}}
-        onPressSearch={() => {}}
-      />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      >
-        <MessageList messages={messages} onMessagesViewed={onMessagesViewed} />
-        <MessageBox onSendMessage={handleSendMessage} />
-      </KeyboardAvoidingView>
-    </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={{ paddingBottom: 40, flex: 1 }}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={keyboardOpen ? 30 : 0}
+        >
+          <ProfileHeader
+            title={chatName}
+            avatarUrl={avatarUrl}
+            screen='ChatScreen'
+            onPressAvatar={() => {}}
+            onPressSearch={() => {}}
+          />
+          <ScrollView
+            style={[styles.messageContainer, { backgroundColor: colors.background }]}
+            contentContainerStyle={{ paddingBottom: 10 }}
+            keyboardShouldPersistTaps='handled'
+          >
+            <MessageList messages={messages} onMessagesViewed={onMessagesViewed} />
+          </ScrollView>
+          <MessageBox onSendMessage={handleSendMessage} />
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  flex: { flex: 1 },
+  messageContainer: { flex: 1 },
 });

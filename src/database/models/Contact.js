@@ -4,7 +4,11 @@ import { field, text } from '@nozbe/watermelondb/decorators';
 export default class Contact extends Model {
   static table = 'contacts';
 
-  @text('username') username;
+  // This ID is from your backend API, used for unique identification
+  @text('contact_id') contactId;
+
+  @text('alias') alias;
+  @text('phone') phone;
   @text('public_key') publicKey;
-  @field('last_seen') lastSeen;
+  @field('added_at') addedAt;
 }
