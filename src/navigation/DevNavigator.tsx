@@ -10,11 +10,14 @@ const Stack = createNativeStackNavigator();
 const DevNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name='CryptoDemo' component={CryptoTestScreen} />
       <Stack.Screen name='HmacTest' component={HmacTestScreen} />
+
+      <Stack.Screen name='CryptoDemo' component={CryptoTestScreen} />
+
       <Stack.Screen name='SecureStorage' component={SecureStorageScreen} />
       <Stack.Screen name='ThemeDemo' component={ThemeDemoScreen} />
-      {/* Add more dev/test screens here if needed */}{' '}
+
+      {/* Add more dev/test screens here if needed */}
     </Stack.Navigator>
   );
 };
