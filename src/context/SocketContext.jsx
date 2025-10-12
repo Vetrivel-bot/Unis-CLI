@@ -88,7 +88,7 @@ export const SocketProvider = ({ children }) => {
 
       // Handle initial connection failure (e.g., bad tokens)
       newSocket.once('connect_error', async error => {
-        console.error('[SocketProvider] Initial connection failed:', error.message);
+        console.error('[SocketProvider] Initial connection failed:', error);
         // Clean up session if the server rejects the initial connection
         await clearTokensFromSecureStorage();
         setAccessToken(null);

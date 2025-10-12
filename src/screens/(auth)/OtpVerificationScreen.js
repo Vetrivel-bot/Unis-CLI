@@ -68,7 +68,7 @@ const OtpVerificationScreen = () => {
       Alert.alert('Success!', `Welcome, ${user?.phone ?? 'user'}`);
 
       // Navigate into main app (replace with your main stack name)
-      navigation.reset({ index: 0, routes: [{ name: 'MainApp' }] });
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
     } catch (error) {
       Alert.alert('Error', error?.message ?? 'OTP verification failed');
     } finally {
