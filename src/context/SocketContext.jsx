@@ -1,3 +1,4 @@
+// src/context/SocketContext.jsx
 import React, {
   createContext,
   useContext,
@@ -32,6 +33,7 @@ export const SocketProvider = ({ children }) => {
   const {
     user,
     setUser,
+    privateKey,
     getAccessToken,
     getRefreshToken,
     setAccessToken,
@@ -100,7 +102,14 @@ export const SocketProvider = ({ children }) => {
       });
 
       // Register all our modular event handlers (for messages, auth updates, etc.)
-      registerSocketEvents(newSocket, { setUser, setAccessToken, setRefreshToken, database });
+      // Pass localPrivateKeyB64 so the global message handler can attempt decryption before persisting.
+      registerSocketEvents(newSocket, {
+        setUser,
+        setAccessToken,
+        setRefreshToken,
+        database,
+        localPrivateKeyB64: privateKey, // <-- important: provide local private key for DB decryption
+      });
 
       // Initialize our message service for sending events
       initMessageService(newSocket);
@@ -121,6 +130,7 @@ export const SocketProvider = ({ children }) => {
     setRefreshToken,
     setUser,
     database,
+    privateKey,
   ]);
 
   // --- REFACTORED SECTION 2: Simplified useEffect Hooks ---

@@ -4,7 +4,9 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { useKeystore } from './KeystoreContext';
 import { AuthenticateApi } from '../services/api';
-import { useDatabase } from './DatabaseContext'; // expects DatabaseProvider is above AppProvider
+import { useDatabase } from './DatabaseContext';
+import nacl from 'tweetnacl';
+import * as naclUtil from 'tweetnacl-util';
 
 const AppContext = createContext(undefined);
 
@@ -41,7 +43,6 @@ export const AppProvider = ({ children }) => {
   const { save, get, remove, rotateMasterKey, migrateToStrongBoxIfAvailable, isAvailable } =
     useKeystore();
 
-  // get WatermelonDB instance (DatabaseProvider must wrap AppProvider)
   const database = useDatabase();
 
   const [user, setUser] = useState(null);
@@ -55,7 +56,7 @@ export const AppProvider = ({ children }) => {
   const [privateKey, setPrivateKey] = useState(null);
 
   const intervalRef = useRef(null);
-  const tokensRef = useRef({ accessToken: null, refreshToken: null }); // in-memory cache
+  const tokensRef = useRef({ accessToken: null, refreshToken: null });
 
   const mask = s => {
     if (!s) return null;
@@ -67,19 +68,11 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ---------------------------
-  // Token helpers (merge-safe)
-  // ---------------------------
+  // --- token helpers (same as before) ---
   const mergeAndPersistTokens = async incoming => {
     if (!incoming || typeof incoming !== 'object') return;
-
-    // Update in-memory only when defined (avoid accidental nulloverwrites)
-    if (incoming.accessToken !== undefined) {
-      tokensRef.current.accessToken = incoming.accessToken;
-    }
-    if (incoming.refreshToken !== undefined) {
-      tokensRef.current.refreshToken = incoming.refreshToken;
-    }
+    if (incoming.accessToken !== undefined) tokensRef.current.accessToken = incoming.accessToken;
+    if (incoming.refreshToken !== undefined) tokensRef.current.refreshToken = incoming.refreshToken;
 
     try {
       if (incoming.accessToken !== undefined) {
@@ -135,7 +128,6 @@ export const AppProvider = ({ children }) => {
         return { accessToken: inMemory.accessToken, refreshToken: inMemory.refreshToken };
       }
 
-      // read from keystore
       const accessToken = await get('accessToken');
       const refreshToken = await get('refreshToken');
 
@@ -178,9 +170,7 @@ export const AppProvider = ({ children }) => {
     return fetch(input, { ...init, headers });
   };
 
-  // ---------------------------
-  // Phone helpers
-  // ---------------------------
+  // Phone helper
   const setPhone = async (newPhone, persist = true) => {
     try {
       setPhoneState(newPhone ?? null);
@@ -202,11 +192,63 @@ export const AppProvider = ({ children }) => {
   };
 
   // ---------------------------
-  // WatermelonDB: upsert contacts
+  // KEYPAIR helpers (local-only)
   // ---------------------------
-  // Map server contact -> DB columns (adjust mapping to your server + schema)
+
+  const encodeB64 = b => naclUtil.encodeBase64(b);
+  const decodeB64 = s => naclUtil.decodeBase64(s);
+
+  /**
+   * Ensure we have a local chat keypair. Loads from keystore if present;
+   * otherwise generates, persists both public + secret, and sets state.
+   *
+   * RETURNS: { publicKey, privateKey }
+   */
+  const ensureChatKeypair = async () => {
+    try {
+      // Try to load existing values
+      const storedPub = await get('chat_publicKey');
+      const storedSecret = (await get('chat_secretKey')) || (await get('chat_privateKey')) || null;
+
+      if (storedPub && storedSecret) {
+        // already available
+        setPublicKey(storedPub);
+        setPrivateKey(storedSecret);
+        return { publicKey: storedPub, privateKey: storedSecret };
+      }
+
+      // Not present -> generate locally
+      const kp = nacl.box.keyPair();
+      const pub = encodeB64(kp.publicKey);
+      const priv = encodeB64(kp.secretKey);
+
+      // Persist securely (keystore)
+      await save('chat_publicKey', pub);
+      await save('chat_secretKey', priv);
+      // keep compatibility key name
+      await save('chat_privateKey', priv);
+
+      // attempt migrate if available (no-op if not supported)
+      try {
+        await migrateToStrongBoxIfAvailable();
+      } catch (e) {
+        // ignore migration failures here
+      }
+
+      setPublicKey(pub);
+      setPrivateKey(priv);
+      console.log('[AppContext] Generated + stored new chat keypair locally');
+      return { publicKey: pub, privateKey: priv };
+    } catch (err) {
+      console.error('[AppContext] ensureChatKeypair error:', err);
+      return null;
+    }
+  };
+
+  // ---------------------------
+  // Upsert contacts (unchanged)
+  // ---------------------------
   const mapServerContactToDbFields = serverContact => {
-    // try common server field names
     const id =
       serverContact.id ?? serverContact._id ?? serverContact.contactId ?? serverContact.contact_id;
 
@@ -225,12 +267,6 @@ export const AppProvider = ({ children }) => {
     return { id, username, public_key, last_seen, phone: phoneField, raw: serverContact };
   };
 
-  /**
-   * Upsert an array of contacts into the WatermelonDB `contacts` table.
-   * - updates existing records by id (if found)
-   * - creates records if not found
-   * - does NOT currently delete stale contacts (optional)
-   */
   const upsertContacts = async contactsArray => {
     if (!database) {
       console.warn('[AppContext][upsertContacts] no database instance available');
@@ -246,19 +282,13 @@ export const AppProvider = ({ children }) => {
       await database.write(async () => {
         for (const srv of contactsArray) {
           const mapped = mapServerContactToDbFields(srv);
-
           if (!mapped.id) {
             console.warn('[AppContext][upsertContacts] skipping contact with no id', srv);
             continue;
           }
-
-          // find existing by id - find throws if not found so catch and continue
           const existing = await collection.find(mapped.id).catch(() => null);
-
           if (existing) {
-            // update only fields we know: username, public_key, last_seen, phone
             await existing.update(record => {
-              // only set if property exists in schema
               if (mapped.username !== undefined)
                 record._raw = { ...record._raw, username: mapped.username };
               if (mapped.public_key !== undefined)
@@ -268,7 +298,6 @@ export const AppProvider = ({ children }) => {
               if (mapped.phone !== undefined) record._raw = { ...record._raw, phone: mapped.phone };
             });
           } else {
-            // create new record with server-provided id
             await collection.create(record => {
               record._raw = {
                 id: mapped.id,
@@ -281,7 +310,6 @@ export const AppProvider = ({ children }) => {
           }
         }
       });
-
       console.log('[AppContext][upsertContacts] upserted', contactsArray.length, 'contacts');
     } catch (e) {
       console.error('[AppContext][upsertContacts] error upserting contacts', e);
@@ -289,7 +317,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // ---------------------------
-  // Sign-in / sign-out
+  // signIn/signOut etc.
   // ---------------------------
   const signOut = async () => {
     await clearTokensFromSecureStorage();
@@ -304,6 +332,13 @@ export const AppProvider = ({ children }) => {
     setPrivateKey(null);
   };
 
+  /**
+   * signInWithTokens:
+   * - persists tokens
+   * - sets user
+   * - persists publicKey from server if provided (but DOES NOT require server private key)
+   * - ensures a local keypair exists (generate if missing)
+   */
   const signInWithTokens = async (tokens, userObj) => {
     if (!tokens || !tokens.accessToken) {
       console.warn('[AppContext][signInWithTokens] called without accessToken, ignoring');
@@ -321,19 +356,25 @@ export const AppProvider = ({ children }) => {
         console.warn('[AppContext][signInWithTokens] failed to persist phone', e);
       }
     }
-    if (finalUser?.publicKey) {
-      setPublicKey(finalUser.publicKey);
-      try {
+
+    // If server returned a publicKey, persist it (server public only)
+    try {
+      if (finalUser?.publicKey) {
         await save('chat_publicKey', finalUser.publicKey);
-      } catch (e) {
-        console.warn('[AppContext][signInWithTokens] failed to persist chat_publicKey', e);
+        setPublicKey(finalUser.publicKey);
+        // do NOT expect private key from server. Ensure we have local private key.
+        await ensureChatKeypair();
+      } else {
+        // ensure we have keys locally
+        await ensureChatKeypair();
       }
+      console.log('[AppContext][signInWithTokens] keys checked/saved locally');
+    } catch (e) {
+      console.warn('[AppContext][signInWithTokens] failed handling keys locally', e);
     }
   };
 
-  // ---------------------------
-  // rotate / migrate helpers
-  // ---------------------------
+  // rotate/migrate helpers
   const rotateAndMigrateOnce = async () => {
     try {
       await rotateMasterKey();
@@ -349,13 +390,9 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ---------------------------
-  // Authenticator (fetches user profile + contacts, updates publicKey/phone)
-  // ---------------------------
-  // inside AppContext provider: replace existing Authenticator with this version
+  // Authenticator (mostly unchanged) but ensure keys are loaded
   const Authenticator = async () => {
     try {
-      // ensure tokens in memory
       if (!tokensRef.current.accessToken || !tokensRef.current.refreshToken) {
         await readTokensFromSecureStorage();
       }
@@ -367,7 +404,7 @@ export const AppProvider = ({ children }) => {
         return null;
       }
 
-      // ensure device info
+      // device info
       let localDeviceId = deviceId;
       let localDeviceName = deviceName;
       if (!localDeviceId) {
@@ -387,7 +424,7 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      // ensure phone if missing
+      // phone
       let localPhone = phone;
       if (!localPhone) {
         try {
@@ -402,13 +439,21 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      // ensure keys loaded
-      if (!publicKey || !privateKey) {
+      // LOAD KEYS into local variables (do NOT rely on state immediately after setState)
+      let localPublicKey = publicKey;
+      let localPrivateKey = privateKey;
+      if (!localPublicKey || !localPrivateKey) {
         try {
           const storedPub = await get('chat_publicKey');
-          const storedSec = await get('chat_secretKey');
-          if (storedPub) setPublicKey(storedPub);
-          if (storedSec) setPrivateKey(storedSec);
+          const storedSec = (await get('chat_secretKey')) || (await get('chat_privateKey')) || null;
+          if (storedPub) {
+            setPublicKey(storedPub);
+            localPublicKey = storedPub;
+          }
+          if (storedSec) {
+            setPrivateKey(storedSec);
+            localPrivateKey = storedSec;
+          }
         } catch (e) {
           console.warn('[AppContext][Authenticator] failed to load chat keys', e);
         }
@@ -420,7 +465,7 @@ export const AppProvider = ({ children }) => {
         phone: localPhone,
         deviceId: localDeviceId,
         deviceName: localDeviceName,
-        publicKey: !!publicKey,
+        publicKey: !!localPublicKey, // use local var for accurate value
       });
 
       const res = await AuthenticateApi(
@@ -429,10 +474,9 @@ export const AppProvider = ({ children }) => {
         localPhone,
         localDeviceId,
         localDeviceName,
-        publicKey,
+        localPublicKey, // pass the actual key value
       );
 
-      // DEBUG: log the full response so we can see where contacts are.
       console.log('[AppContext][Authenticator] full AuthenticateApi response:', res);
 
       if (res && res.user) {
@@ -452,7 +496,6 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      // Try multiple places where backend might send contacts
       const contactsFromResponse =
         (res && res.contacts) ||
         (res && res.data && res.data.contacts) ||
@@ -462,7 +505,6 @@ export const AppProvider = ({ children }) => {
       if (Array.isArray(contactsFromResponse) && contactsFromResponse.length > 0) {
         try {
           await upsertContacts(contactsFromResponse);
-          // log after upsert
           await logAllContacts();
         } catch (e) {
           console.warn('[AppContext][Authenticator] upsertContacts failed', e);
@@ -470,6 +512,9 @@ export const AppProvider = ({ children }) => {
       } else {
         console.log('[AppContext][Authenticator] no contacts found in response');
       }
+
+      // ensure a local keypair exists (won't contact server)
+      await ensureChatKeypair();
 
       return res;
     } catch (e) {
@@ -490,7 +535,7 @@ export const AppProvider = ({ children }) => {
       console.error('[AppContext][Contacts] Failed to fetch contacts:', error);
     }
   };
-  // Check that messages collection exists and show count
+
   const logAllMessages = async () => {
     try {
       const coll = database.collections.get('messages');
@@ -506,16 +551,11 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Run it after DB setup or inside ChatScreen useEffect after `database` is truthy
-
-  // ---------------------------
-  // Startup
-  // ---------------------------
+  // startup: load keys/phone/tokens and ensure local keypair exists
   useEffect(() => {
     let mounted = true;
     const init = async () => {
       try {
-        // load persisted phone early
         try {
           const storedPhone = await get('userPhone');
           if (storedPhone) {
@@ -526,10 +566,9 @@ export const AppProvider = ({ children }) => {
           console.warn('[AppContext][init] error reading phone from keystore', e);
         }
 
-        // load chat keys early (if present)
         try {
           const storedPub = await get('chat_publicKey');
-          const storedSec = await get('chat_secretKey');
+          const storedSec = (await get('chat_secretKey')) || (await get('chat_privateKey')) || null;
           if (storedPub) {
             setPublicKey(storedPub);
             console.log('[AppContext][init] loaded chat_publicKey from keystore');
@@ -542,7 +581,6 @@ export const AppProvider = ({ children }) => {
           console.warn('[AppContext][init] error reading chat keys from keystore', e);
         }
 
-        // populate device id/name
         try {
           const id = await DeviceInfo.getUniqueId();
           const name = await DeviceInfo.getDeviceName();
@@ -554,54 +592,14 @@ export const AppProvider = ({ children }) => {
           console.warn('[AppContext][init] device info error', e);
         }
 
-        // try to read phone number from device (Android only)
+        // ensure a local keypair exists (generate if needed)
         try {
-          if (!phone) {
-            if (Platform.OS === 'android') {
-              try {
-                const granted = await PermissionsAndroid.request(
-                  PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
-                  {
-                    title: 'Permission to read phone number',
-                    message:
-                      'This app would like to read your device phone number to pre-fill your account info.',
-                    buttonPositive: 'Allow',
-                    buttonNegative: 'Deny',
-                  },
-                );
-                if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-                  try {
-                    const devicePhone = await DeviceInfo.getPhoneNumber();
-                    if (devicePhone) {
-                      console.log('[AppContext][init] device phone found', devicePhone);
-                      await setPhone(devicePhone);
-                    } else {
-                      console.log(
-                        '[AppContext][init] DeviceInfo.getPhoneNumber returned null/empty',
-                      );
-                    }
-                  } catch (e) {
-                    console.warn('[AppContext][init] getPhoneNumber failed', e);
-                  }
-                } else {
-                  console.log('[AppContext][init] READ_PHONE_STATE permission denied');
-                }
-              } catch (permErr) {
-                console.warn('[AppContext][init] permission request error', permErr);
-              }
-            } else {
-              console.log('[AppContext][init] skipping device phone read on non-Android platform');
-            }
-          } else {
-            console.log(
-              '[AppContext][init] phone already loaded from keystore, skipping device read',
-            );
-          }
+          await ensureChatKeypair();
         } catch (e) {
-          console.warn('[AppContext][init] device phone read error', e);
+          console.warn('[AppContext][init] ensureChatKeypair error', e);
         }
 
-        // immediate rotate + migrate attempt
+        // rotate/migrate attempt
         try {
           await rotateAndMigrateOnce();
         } catch (e) {
@@ -637,6 +635,8 @@ export const AppProvider = ({ children }) => {
       } finally {
         if (mounted) {
           setIsLoading(false);
+          console.log(publicKey);
+          console.log(privateKey);
           console.log('[AppContext][init] finished init, isLoading=false');
         }
       }
@@ -685,6 +685,7 @@ export const AppProvider = ({ children }) => {
         Authenticator,
         applyTokensSafely,
         upsertContacts,
+        ensureChatKeypair, // <-- exported so screens can call it directly
       }}
     >
       {children}

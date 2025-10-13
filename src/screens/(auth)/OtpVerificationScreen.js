@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/auth/OtpVerificationScreen.jsx (or .js)
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -22,16 +23,10 @@ const OtpVerificationScreen = () => {
   const { phone } = route.params || {};
 
   // get functions from AppContext
-  const { deviceId, deviceName, signInWithTokens, setPhone } = useAppContext();
+  const { deviceId, deviceName, signInWithTokens, setPhone, ensureChatKeypair, publicKey } =
+    useAppContext();
 
-  // Optional: you may capture pushToken/publicKey here and pass them in verifyOtpApi
   const [pushToken, setPushToken] = useState(null);
-  const [publicKey, setPublicKey] = useState(null);
-
-  useEffect(() => {
-    // if you use push notifications, initialize push token here and setPushToken(...)
-    // if you generate keypair, setPublicKey(...)
-  }, []);
 
   const handleVerifyOtp = async () => {
     if (!otp || otp.length < 4) {
@@ -45,29 +40,33 @@ const OtpVerificationScreen = () => {
 
     setLoading(true);
     try {
-      const data = await verifyOtpApi(phone, otp, deviceId, deviceName, publicKey, pushToken);
-      // Expect backend response to include accessToken, refreshToken, user
-      const { accessToken, refreshToken, user } = data;
+      // Ensure we have a local keypair (generates + saves if missing)
+      const kp = await ensureChatKeypair();
+      // kp.publicKey is available; pass to verify if backend expects it
+      const data = await verifyOtpApi(
+        phone,
+        otp,
+        deviceId,
+        deviceName,
+        kp?.publicKey ?? publicKey,
+        pushToken,
+      );
 
+      const { accessToken, refreshToken, user } = data;
       if (!accessToken || !refreshToken) {
         Alert.alert('Error', 'Missing tokens from server response.');
         return;
       }
 
-      // Save tokens & user via AppContext helper (saves securely & sets user)
       await signInWithTokens({ accessToken, refreshToken }, user);
 
-      // Persist phone into keystore via AppContext helper
       try {
-        // setPhone will persist phone in keystore and update context state
         if (typeof setPhone === 'function') await setPhone(phone);
       } catch (err) {
         console.warn('[OtpVerificationScreen] failed to persist phone to keystore', err);
       }
 
       Alert.alert('Success!', `Welcome, ${user?.phone ?? 'user'}`);
-
-      // Navigate into main app (replace with your main stack name)
       navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
     } catch (error) {
       Alert.alert('Error', error?.message ?? 'OTP verification failed');
@@ -119,12 +118,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  button: {
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  button: { height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
 

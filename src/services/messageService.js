@@ -1,5 +1,6 @@
 // src/services/messageService.js
 import { Q } from '@nozbe/watermelondb';
+import { decryptMessage } from '../utils/crypto/chat-crypto'; // adjust path if your chat-crypto location differs
 
 let socket = null;
 
@@ -8,10 +9,44 @@ export const initMessageService = socketInstance => {
   console.log('[MessageService] Initialized.');
 };
 
-export const sendMessage = ({ toUserId, text }) => {
+/**
+ * sendMessage(envelopeOrArgs)
+ *
+ * Backwards-compatible: accepts either:
+ *  - an envelope object (with ciphertext, toUserId, etc.)
+ *  - or the older signature: ({ toUserId, text })
+ *
+ * The function name is preserved.
+ */
+export const sendMessage = envelopeOrArgs => {
   return new Promise((resolve, reject) => {
     if (!socket) return reject(new Error('Socket not initialized'));
-    const envelope = { toUserId, ciphertext: text, nonce: null };
+
+    // Build a normalized envelope:
+    let envelope = null;
+    try {
+      // If caller passed an object that already contains a ciphertext field, treat it as the envelope
+      if (envelopeOrArgs && typeof envelopeOrArgs === 'object' && 'ciphertext' in envelopeOrArgs) {
+        envelope = envelopeOrArgs;
+      } else if (envelopeOrArgs && typeof envelopeOrArgs === 'object') {
+        // old style: { toUserId, text }
+        const { toUserId, text, ...rest } = envelopeOrArgs;
+        envelope = { toUserId, ciphertext: text, ...rest };
+      } else {
+        // fallback (should not happen)
+        return reject(new Error('Invalid arguments to sendMessage'));
+      }
+    } catch (e) {
+      return reject(e);
+    }
+
+    // debug log the envelope before sending (helps debug "invalid envelope")
+    try {
+      console.log('[MessageService] emitting send_message envelope:', envelope);
+    } catch (e) {
+      // ignore logging errors
+    }
+
     socket.emit('send_message', envelope, ack => {
       if (ack && ack.status === 'ok' && ack.id) resolve(ack);
       else reject(ack || new Error('Send message failed: No acknowledgement from server.'));
@@ -42,11 +77,12 @@ export const markAsRead = msgId => {
  * - Uses find() to check existence (avoids fragile queries on `id`)
  * - Parses timestamp strings or numbers into epoch ms
  * - Writes a full _raw object in the create callback
+ * - Attempts to decrypt ciphertext using provided localPrivateKeyB64 + sender public key
+ *
+ * saveIncomingMessage(database, msg, options = {})
+ * options: { localPrivateKeyB64 }  // optional: base64 encoded local secret key
  */
-// src/services/messageService.js
-// replace your existing saveIncomingMessage with this
-
-export const saveIncomingMessage = async (database, msg) => {
+export const saveIncomingMessage = async (database, msg, options = {}) => {
   if (!database) {
     console.warn('[DB] saveIncomingMessage: no database passed');
     return;
@@ -81,6 +117,45 @@ export const saveIncomingMessage = async (database, msg) => {
     msg.chat_id ?? msg.conversation_id ?? msg.from ?? msg.to ?? msg.sender_id ?? '';
   const senderIdField = msg.sender_id ?? msg.from ?? '';
 
+  // Attempt to decrypt if ciphertext present and we have local private key
+  let plaintext = null;
+  if (msg.ciphertext && options.localPrivateKeyB64) {
+    try {
+      // try to obtain senderPublicKey from message or from contacts table
+      let senderPub = msg.senderPublicKey ?? msg.sender_public_key ?? msg.publicKey ?? null;
+
+      if (!senderPub && senderIdField) {
+        try {
+          const contactsCollection = database.collections.get('contacts');
+          // try query first (safer than find)
+          const maybeContact = await contactsCollection.query(Q.where('id', senderIdField)).fetch();
+          if (Array.isArray(maybeContact) && maybeContact.length > 0) {
+            senderPub = maybeContact[0]._raw?.public_key ?? senderPub;
+          } else {
+            const rec = await contactsCollection.find(senderIdField).catch(() => null);
+            if (rec) senderPub = rec._raw?.public_key ?? senderPub;
+          }
+        } catch (e) {
+          // ignore lookup failure
+        }
+      }
+
+      if (senderPub) {
+        const dec = decryptMessage({
+          recipientSecretKeyB64: options.localPrivateKeyB64,
+          senderPublicKeyB64: senderPub,
+          payloadB64: msg.ciphertext,
+        });
+        if (dec) plaintext = dec;
+      }
+    } catch (e) {
+      console.warn('[DB] saveIncomingMessage: decryption attempt failed', e);
+    }
+  }
+
+  // If decrypt didn't happen or failed, prefer msg.content if present, else fallback to ciphertext (not ideal)
+  const contentToStore = plaintext ?? msg.content ?? msg.ciphertext ?? '';
+
   try {
     await database.write(async () => {
       // try to find existing by id (find throws if not found)
@@ -91,7 +166,8 @@ export const saveIncomingMessage = async (database, msg) => {
         await existing.update(record => {
           record._raw = {
             ...record._raw,
-            content: msg.content ?? msg.ciphertext ?? record._raw.content ?? '',
+            content: contentToStore,
+            // keep original status if present, else default
             status: msg.status ?? record._raw.status ?? 'delivered',
             timestamp: timestampMs,
             chat_id: chatIdField || record._raw.chat_id,
@@ -106,7 +182,7 @@ export const saveIncomingMessage = async (database, msg) => {
             id: msg.id,
             chat_id: chatIdField,
             sender_id: senderIdField,
-            content: msg.content ?? msg.ciphertext ?? '',
+            content: contentToStore,
             status: msg.status ?? 'delivered',
             timestamp: timestampMs,
           };

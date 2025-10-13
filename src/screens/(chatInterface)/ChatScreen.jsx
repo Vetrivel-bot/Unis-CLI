@@ -1,3 +1,4 @@
+// src/screens/ChatScreen.jsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
@@ -23,10 +24,16 @@ import {
 } from '../../services/messageService';
 import { useDatabase } from '../../context/DatabaseContext';
 import { Q } from '@nozbe/watermelondb';
+import { useAppContext } from '../../context/AppContext';
+
+// crypto helpers
+import { encryptMessage, decryptMessage } from '../../utils/crypto/chat-crypto'; // adjust path if necessary
 
 export default function ChatScreen() {
   const database = useDatabase();
   const [messages, setMessages] = useState([]);
+  const { publicKey, privateKey } = useAppContext();
+  console.log('Public Key: ', publicKey, '\n', 'Private Key: ', privateKey);
 
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -38,6 +45,16 @@ export default function ChatScreen() {
   const deliveredRef = useRef(new Set());
   const readRef = useRef(new Set());
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // --- helper: detect simple NaCl key shape (heuristic) ---
+  const isNaClKey = keyB64 => {
+    if (!keyB64 || typeof keyB64 !== 'string') return false;
+    // NaCl box keys are 32 bytes -> base64 length around 44 (with padding)
+    // Heuristic: ensure it's not a PEM / RSA key and length within plausible range.
+    if (keyB64.includes('BEGIN') || keyB64.includes('MII') || keyB64.includes('-----'))
+      return false;
+    return keyB64.length >= 40 && keyB64.length <= 48;
+  };
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -131,17 +148,54 @@ export default function ChatScreen() {
     [markReadLocally],
   );
 
+  // helper to lookup contact public key
+  const getContactPublicKey = async id => {
+    if (!database || !id) return null;
+    try {
+      const coll = database.collections.get('contacts');
+      // try query first (safer than find)
+      const rows = await coll.query(Q.where('id', id)).fetch();
+      if (Array.isArray(rows) && rows.length > 0) return rows[0]._raw?.public_key ?? null;
+      const rec = await coll.find(id).catch(() => null);
+      if (rec) return rec._raw?.public_key ?? null;
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  };
+
   useEffect(() => {
     const onChatMessage = async msg => {
       if (!msg) return;
       console.log('[ChatScreen] onChatMessage received', msg, 'chatId:', chatId);
 
       if (msg.from === chatId || msg.sender_id === chatId) {
+        // try to decrypt for UI
+        let plaintext = null;
+        if (msg.ciphertext && privateKey) {
+          try {
+            // prefer senderPublicKey included in message, else lookup contact
+            let senderPub = msg.senderPublicKey ?? msg.sender_public_key ?? msg.publicKey ?? null;
+            if (!senderPub) senderPub = await getContactPublicKey(chatId);
+
+            if (senderPub) {
+              const dec = decryptMessage({
+                recipientSecretKeyB64: privateKey,
+                senderPublicKeyB64: senderPub,
+                payloadB64: msg.ciphertext,
+              });
+              if (dec) plaintext = dec;
+            }
+          } catch (e) {
+            console.warn('[ChatScreen] decryption attempt failed for incoming message', e);
+          }
+        }
+
         const incoming = {
           id: msg.id,
           type: 'received',
           contentType: 'text',
-          text: msg.ciphertext ?? msg.content ?? '',
+          text: plaintext ?? msg.content ?? msg.ciphertext ?? '',
           status: msg.status || 'delivered',
           ts: msg.ts ?? new Date().toISOString(),
         };
@@ -150,7 +204,8 @@ export default function ChatScreen() {
 
         try {
           if (database) {
-            await saveIncomingMessage(database, msg);
+            // pass local privateKey to saveIncomingMessage so the DB persister can also decrypt & store plaintext
+            await saveIncomingMessage(database, msg, { localPrivateKeyB64: privateKey });
           } else {
             console.warn(
               '[ChatScreen] No database available when trying to save incoming message.',
@@ -181,7 +236,7 @@ export default function ChatScreen() {
       messageSubscription();
       statusSubscription();
     };
-  }, [chatId, isFocused, emitDelivered, emitRead, database]);
+  }, [chatId, isFocused, emitDelivered, emitRead, database, privateKey]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -225,7 +280,7 @@ export default function ChatScreen() {
     // show immediately in UI
     setMessages(prev => [...prev, optimisticMessage]);
 
-    // persist optimistic message locally with tempId
+    // persist optimistic message locally with tempId (still plaintext in DB)
     try {
       if (database) {
         const coll = database.collections.get('messages');
@@ -235,9 +290,8 @@ export default function ChatScreen() {
             record._raw = {
               id: tempId,
               chat_id: chatId ?? '',
-              // 'me' placeholder — replace with actual local user ID if available
               sender_id: 'me',
-              content: text,
+              content: text, // plaintext stored
               status: 'sending',
               timestamp: timestampMs,
             };
@@ -251,42 +305,89 @@ export default function ChatScreen() {
       console.error('[ChatScreen] failed to persist optimistic message:', e);
     }
 
-    // send over socket
+    // prepare ciphertext (if we have recipient public key & our privateKey)
+    let envelope = null;
     try {
-      const ack = await sendMessage({ toUserId: chatId, text });
+      const recipientPub = await getContactPublicKey(chatId);
 
-      // ack should contain ack.id (server message id)
-      if (!ack || !ack.id) {
-        throw new Error('No ack id from server');
+      // Use NaCl-only encryption if both keys look like NaCl keys; otherwise fallback to cleartext envelope
+      if (recipientPub && privateKey && isNaClKey(recipientPub) && isNaClKey(privateKey)) {
+        // encrypt using our local secret and recipient public key
+        const ciphertext = encryptMessage({
+          senderSecretKeyB64: privateKey,
+          recipientPublicKeyB64: recipientPub,
+          message: text,
+        });
+        envelope = {
+          toUserId: chatId,
+          to: chatId,
+          ciphertext,
+          contentType: 'text',
+          senderPublicKey: publicKey ?? null, // include our public key if available
+          // nonce is embedded in ciphertext
+        };
+      } else {
+        // fallback: send plaintext in ciphertext field, but include clear flags so server can accept it
+        envelope = {
+          toUserId: chatId,
+          to: chatId,
+          ciphertext: text,
+          contentType: 'text',
+          senderPublicKey: publicKey ?? null,
+          cleartext: true,
+        };
+        if (!recipientPub)
+          console.warn('[ChatScreen] recipient public key not found — sending plaintext.');
+        if (!privateKey)
+          console.warn(
+            '[ChatScreen] local privateKey not available or not NaCl — sending plaintext.',
+          );
       }
+    } catch (e) {
+      console.error('[ChatScreen] encryption failed, sending plaintext', e);
+      envelope = {
+        toUserId: chatId,
+        to: chatId,
+        ciphertext: text,
+        contentType: 'text',
+        senderPublicKey: publicKey ?? null,
+        cleartext: true,
+      };
+    }
+
+    // log the final envelope to debug server-side "invalid envelope" responses
+    console.log('[ChatScreen] sending envelope:', envelope);
+
+    // send via socket/service
+    try {
+      const ack = await sendMessage(envelope);
+
+      if (!ack || !ack.id) throw new Error('No ack id from server');
 
       // update UI: replace tempId with server id and mark status 'sent'
       setMessages(prev =>
         prev.map(m => (m.id === tempId ? { ...m, id: ack.id, status: 'sent' } : m)),
       );
 
-      // Update DB: create server-id record, then remove temp record
+      // Update DB: create server-id record, then remove temp record (plaintext stored)
       try {
         if (database) {
           const coll = database.collections.get('messages');
 
           await database.write(async () => {
-            // create server record (avoid mutating primary key of existing record)
             await coll.create(record => {
               record._raw = {
                 id: ack.id,
                 chat_id: chatId ?? '',
                 sender_id: 'me',
-                content: text,
+                content: text, // keep plaintext in DB
                 status: 'sent',
                 timestamp: Date.now(),
               };
             });
 
-            // try to find and destroy the temp record
             const tempRecord = await coll.find(tempId).catch(() => null);
             if (tempRecord) {
-              // permanently remove local temp message
               await tempRecord.destroyPermanently();
               console.log('[ChatScreen] removed temp DB message', tempId);
             }
@@ -343,14 +444,14 @@ export default function ChatScreen() {
             onPressAvatar={() => {}}
             onPressSearch={() => {}}
           />
-          <ScrollView
-            ref={scrollRef}
-            style={[styles.messageContainer, { backgroundColor: colors.background }]}
-            contentContainerStyle={{ paddingBottom: 10 }}
-            keyboardShouldPersistTaps='handled'
-          >
-            <MessageList messages={messages} onMessagesViewed={onMessagesViewed} />
-          </ScrollView>
+          {/* Replaced outer ScrollView with View to avoid nesting VirtualizedList inside ScrollView */}
+          <View style={[styles.messageContainer, { backgroundColor: colors.background }]}>
+            <MessageList
+              messages={messages}
+              onMessagesViewed={onMessagesViewed}
+              scrollRef={scrollRef}
+            />
+          </View>
           <MessageBox onSendMessage={handleSendMessage} />
         </KeyboardAvoidingView>
       </View>
