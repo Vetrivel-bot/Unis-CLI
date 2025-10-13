@@ -10,6 +10,7 @@ import { io } from 'socket.io-client';
 import DeviceInfo from 'react-native-device-info';
 import { useAppContext } from './AppContext';
 import { API_BASE_URL } from '@env';
+import { useDatabase } from '../context/DatabaseContext'; // << add this
 
 import { registerSocketEvents } from '../socket/socketEvents';
 // We still need the message service initializer from our previous refactor
@@ -23,6 +24,7 @@ const SocketContext = createContext({
 export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }) => {
+  const database = useDatabase(); // << add this
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
@@ -98,7 +100,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       // Register all our modular event handlers (for messages, auth updates, etc.)
-      registerSocketEvents(newSocket, { setUser, setAccessToken, setRefreshToken });
+      registerSocketEvents(newSocket, { setUser, setAccessToken, setRefreshToken, database });
 
       // Initialize our message service for sending events
       initMessageService(newSocket);
@@ -118,6 +120,7 @@ export const SocketProvider = ({ children }) => {
     setAccessToken,
     setRefreshToken,
     setUser,
+    database,
   ]);
 
   // --- REFACTORED SECTION 2: Simplified useEffect Hooks ---

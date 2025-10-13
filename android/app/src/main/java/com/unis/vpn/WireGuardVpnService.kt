@@ -1,6 +1,5 @@
 package com.unis.vpn
 
-
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
@@ -16,7 +15,6 @@ import com.wireguard.android.backend.Tunnel.State
 import com.wireguard.config.Config
 import java.io.BufferedReader
 import java.io.StringReader
-
 import android.app.NotificationManager
 
 @SuppressLint("VpnServicePolicy")
@@ -85,8 +83,6 @@ class WireGuardVpnService : VpnService() {
             val config = Config.parse(BufferedReader(StringReader(configText)))
             backend = GoBackend(this)
 
-
-
             // Tunnel listener
             tunnel = object : Tunnel {
                 override fun getName() = "UnisWireGuardVPN"
@@ -117,12 +113,12 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-// Build VPN interface
+            // Build VPN interface
             val builder = Builder()
             builder.setSession("UnisWireGuardVPN")
             builder.setMtu(1280)
 
-// Add addresses
+            // Add addresses
             config.`interface`.addresses.forEach { addr ->
                 try {
                     builder.addAddress(addr.address.hostAddress, addr.mask)
@@ -132,7 +128,7 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-// Add DNS
+            // Add DNS
             config.`interface`.dnsServers.forEach { dns ->
                 try {
                     builder.addDnsServer(dns.hostAddress)
@@ -142,22 +138,17 @@ class WireGuardVpnService : VpnService() {
                 }
             }
 
-// 🛑 REMOVE or COMMENT OUT the universal routes for split tunneling:
+            // Remove universal routes (do NOT route all traffic)
             // builder.addRoute("0.0.0.0", 0)
-            // try {
-            //     builder.addRoute("::", 0)
-            // } catch (ex: Exception) {
-            //     Log.w(TAG, "IPv6 route not added: ${ex.message}")
-            // }
+            // try { builder.addRoute("::", 0) } catch (ex: Exception) { Log.w(TAG, "IPv6 route not added: ${ex.message}") }
 
-            // ✅ ADD: Only allow your app's traffic
-            val packageName = "com.unis" // Replace with the actual package name of the app(s) you want to route
+            // Only allow this app's traffic (split-tunnel). Use the application package name at runtime.
+            val packageNameToAllow = applicationContext.packageName
             try {
-                builder.addAllowedApplication(packageName)
-                Log.i(TAG, "Allowed app for split tunnel: $packageName")
+                builder.addAllowedApplication(packageNameToAllow)
+                Log.i(TAG, "Allowed app for split tunnel: $packageNameToAllow")
             } catch (e: Exception) {
-                // This is unlikely to fail for your own package
-                Log.e(TAG, "Failed to add allowed application $packageName: ${e.message}", e)
+                Log.e(TAG, "Failed to add allowed application $packageNameToAllow: ${e.message}", e)
                 sendErrorNotification("VPN Error: Cannot allow app traffic")
                 sendVpnState("ERROR: Cannot allow app traffic")
                 stopSelf()
@@ -189,25 +180,18 @@ class WireGuardVpnService : VpnService() {
         }
     }
 
-
-
-
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundService(content: String) {
         val notification = notificationManager.buildNotification(content)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // SOLUTION: Change this to match the AndroidManifest.xml
-            val foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+            val foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
             startForeground(VpnNotificationManager.FOREGROUND_SERVICE_ID, notification, foregroundServiceType)
         } else {
-            // Fallback for older Android versions
             startForeground(VpnNotificationManager.FOREGROUND_SERVICE_ID, notification)
         }
         Log.i(TAG, "Foreground service started: $content")
     }
-
-
 
     private fun updateForegroundNotification(content: String) {
         val notification = notificationManager.buildNotification(content)
@@ -241,21 +225,21 @@ class WireGuardVpnService : VpnService() {
         Log.i(TAG, "Stopping VPN...")
 
         try {
-            // 1️⃣ Change tunnel state to DOWN
+            // Change tunnel state to DOWN
             tunnel?.let {
                 Log.i(TAG, "Bringing tunnel down...")
                 backend?.setState(it, State.DOWN, null)
                 sendVpnState("DISCONNECTED")
             }
 
-            // 2️⃣ Close the VPN interface
+            // Close the VPN interface
             vpnInterface?.close()
             vpnInterface = null
             Log.i(TAG, "VPN interface closed")
 
             notificationManager.cancelNotification(this)
 
-            // 4️⃣ Stop the service
+            // Stop the service
             stopSelf()
             Log.i(TAG, "VPN service stopped successfully")
 
@@ -269,15 +253,10 @@ class WireGuardVpnService : VpnService() {
         return currentVpnState
     }
 
-
     override fun onDestroy() {
         Log.i(TAG, "VPN Service destroyed")
-
         stopVpnConnection()
         sendVpnState("DISCONNECTED")
-
-
-
         stopForeground(true)
         super.onDestroy()
     }
@@ -287,5 +266,16 @@ class WireGuardVpnService : VpnService() {
         sendVpnState("REVOKED")
         stopSelf()
         super.onRevoke()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.i(TAG, "Task removed, stopping VPN to ensure no routing when app closed")
+        try {
+            stopVpnConnection()
+        } catch (ex: Exception) {
+            Log.e(TAG, "Error in onTaskRemoved: ${ex.message}", ex)
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 }

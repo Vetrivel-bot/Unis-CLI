@@ -103,7 +103,6 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
                         }
                     }
 
-                    // Implement common reject overloads so the anonymous object is valid against the RN Promise interface
                     override fun reject(code: String, message: String?) {
                         Log.e(TAG, "TempPromise rejected: code=$code message=$message")
                     }
@@ -155,7 +154,7 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
                         waitForVpnConnection()
                     }
                 } else {
-                    // If for some reason permission is false (shouldn't happen here), request it via MainActivity
+                    // If for some reason permission is false, request it via MainActivity as fallback
                     sendEvent("VPN_STATUS", "PERMISSION_REQUIRED")
                     val intent = Intent(context, com.unis.MainActivity::class.java)
                     intent.putExtra("vpn_action", "request_permission")

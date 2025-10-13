@@ -73,6 +73,7 @@ export const AuthenticateApi = async (
   publicKey,
 ) => {
   const endpoint = `${API_BASE_URL}/api/auth`;
+  console.log('AuthenticateApi: ', endpoint);
 
   const headers = {
     'Content-Type': 'application/json',

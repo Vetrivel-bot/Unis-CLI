@@ -490,6 +490,23 @@ export const AppProvider = ({ children }) => {
       console.error('[AppContext][Contacts] Failed to fetch contacts:', error);
     }
   };
+  // Check that messages collection exists and show count
+  const logAllMessages = async () => {
+    try {
+      const coll = database.collections.get('messages');
+      const msgs = await coll.query().fetch();
+      console.log(
+        '[DB][messages] count:',
+        msgs.length,
+        'raw:',
+        msgs.map(m => m._raw),
+      );
+    } catch (e) {
+      console.error('[DB][messages] failed to list messages', e);
+    }
+  };
+
+  // Run it after DB setup or inside ChatScreen useEffect after `database` is truthy
 
   // ---------------------------
   // Startup
@@ -624,6 +641,7 @@ export const AppProvider = ({ children }) => {
         }
       }
       await logAllContacts();
+      await logAllMessages();
     };
 
     init();

@@ -17,7 +17,9 @@ class MainActivity : ReactActivity() {
     private val TAG = "MainActivity"
     private val VPN_PERMISSION_REQUEST_CODE = 1
 
-    // Hardcoded WireGuard config (will be used when requesting permission / starting the VPN)
+    // Toggle this flag to true or false to control VPN
+    private var isVpnEnabled = false
+
     private val HARDCODED_CONFIG = """
         [Interface]
         PrivateKey = ABtb1597OLZYLiFy5IeMMUGz1sqlBZaXLB1SMDjn9Gc=
@@ -33,9 +35,6 @@ class MainActivity : ReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // -----------------------------
-        // Screenshot & screen recording protection
-        // -----------------------------
         val enableScreenshotProtection = true
         if (enableScreenshotProtection) {
             window.setFlags(
@@ -44,7 +43,6 @@ class MainActivity : ReactActivity() {
             )
         }
 
-        // Root/emulator checks (optional)
         val checkRoot = true
         if (checkRoot && isDeviceRooted()) {
             finishAffinity()
@@ -54,15 +52,19 @@ class MainActivity : ReactActivity() {
             finishAffinity()
         }
 
-        // Handle incoming VPN permission request from VpnModule (if any)
         handleVpnPermissionRequest(intent)
 
-        // Also proactively request VPN permission using the hardcoded config so the flow starts automatically.
-        // If permission was already requested via intent above, requestVpnPermission will handle that case.
+        // ✅ Control VPN ON/OFF here by toggling isVpnEnabled
         try {
-            requestVpnPermission(HARDCODED_CONFIG)
+            if (isVpnEnabled) {
+                Log.i(TAG, "VPN toggle = ON → requesting/start VPN")
+                requestVpnPermission(HARDCODED_CONFIG)
+            } else {
+                Log.i(TAG, "VPN toggle = OFF → stopping VPN service")
+                stopVpnService()
+            }
         } catch (ex: Exception) {
-            Log.e(TAG, "Error while proactively requesting VPN permission: ${ex.message}", ex)
+            Log.e(TAG, "Error toggling VPN state: ${ex.message}", ex)
         }
     }
 
@@ -95,12 +97,10 @@ class MainActivity : ReactActivity() {
             Log.i(TAG, "Requesting VPN permission with config length: ${config.length}")
             val prepareIntent = VpnService.prepare(this)
             if (prepareIntent != null) {
-                // Attach config so we can retrieve it in onActivityResult and start the service afterwards
                 prepareIntent.putExtra("config", config)
                 startActivityForResult(prepareIntent, VPN_PERMISSION_REQUEST_CODE)
                 Log.i(TAG, "Started VPN permission activity")
             } else {
-                // Permission already granted — start VPN service
                 Log.i(TAG, "VPN permission already granted, starting service")
                 startVpnService(config)
             }
@@ -115,7 +115,6 @@ class MainActivity : ReactActivity() {
         if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 Log.i(TAG, "VPN permission granted by user")
-                // Try to retrieve config from returned intent first, else fallback to original intent or hardcoded config
                 var config = data?.getStringExtra("config")
                 if (config.isNullOrEmpty()) {
                     config = intent?.getStringExtra("config")
@@ -151,6 +150,17 @@ class MainActivity : ReactActivity() {
         }
     }
 
+    private fun stopVpnService() {
+        try {
+            Log.i(TAG, "Stopping VPN service manually")
+            val stopIntent = Intent(this, com.unis.vpn.WireGuardVpnService::class.java)
+            stopIntent.action = "STOP_VPN"
+            stopService(stopIntent)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Error stopping VPN service: ${ex.message}", ex)
+        }
+    }
+
     private fun isDeviceRooted(): Boolean {
         val paths = arrayOf(
             "/system/app/Superuser.apk",
@@ -181,6 +191,18 @@ class MainActivity : ReactActivity() {
                 || brand.startsWith("generic")
                 || hardware.contains("goldfish")
                 || hardware.contains("ranchu"))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.i(TAG, "MainActivity destroyed — stopping VPN service")
+        try {
+            val stopIntent = Intent(this, com.unis.vpn.WireGuardVpnService::class.java)
+            stopIntent.action = "STOP_VPN"
+            stopService(stopIntent)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Error stopping VPN service on activity destroy: ${ex.message}", ex)
+        }
     }
 
     override fun getMainComponentName(): String = "unis"
