@@ -7,8 +7,7 @@ export default class Contact extends Model {
 
   @text('username') username;
   @text('public_key') publicKey;
-  @text('phone') phone; // if you add phone column to schema
+  @text('phone') phone;
   @field('last_seen') lastSeen;
-  // if you added an 'added_at' number column in schema:
-  // @field('added_at') addedAt;
+  @field('unread_count') unreadCount; // <-- added field
 }

@@ -189,6 +189,40 @@ export const saveIncomingMessage = async (database, msg, options = {}) => {
         });
         console.log(`[DB] Created message ${msg.id}`);
       }
+
+      // -------------------------
+      // Update unread_count for contact (increment) when appropriate
+      // - Only increment for messages that are from someone else (senderIdField present and not 'me')
+      // - If message already marked 'read' by server, skip increment
+      // -------------------------
+      try {
+        const isFromOther = !!senderIdField && senderIdField !== 'me';
+        const serverSaysRead = msg.status === 'read' || msg.read === true;
+
+        if (isFromOther && !serverSaysRead) {
+          try {
+            const contactsCollection = database.collections.get('contacts');
+            const contactRec = await contactsCollection.find(senderIdField).catch(() => null);
+            if (contactRec) {
+              const currentUnread = Number(contactRec._raw?.unread_count ?? 0);
+              await contactRec.update(r => {
+                r._raw = {
+                  ...r._raw,
+                  unread_count: currentUnread + 1,
+                };
+              });
+              console.log(`[DB] Incremented unread_count for contact ${senderIdField}`);
+            } else {
+              // contact not found; nothing to update. You may want to create a contact record here if desired.
+            }
+          } catch (e) {
+            // ignore contact update errors
+            console.warn('[DB] Failed to increment unread_count for contact', e);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     });
   } catch (err) {
     console.error('[DB] saveIncomingMessage ERROR:', err);

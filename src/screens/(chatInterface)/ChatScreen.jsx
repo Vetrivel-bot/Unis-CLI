@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  ScrollView,
   Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +54,103 @@ export default function ChatScreen() {
       return false;
     return keyB64.length >= 40 && keyB64.length <= 48;
   };
+
+  // Reset unread_count for a given chat/contact id
+  // — Now marks messages from the chat as 'read', sets contact.unread_count=0,
+  //   and emits markAsRead for each message so server is informed.
+  const resetUnreadForChat = useCallback(
+    async chatIdToReset => {
+      if (!database || !chatIdToReset) return;
+      try {
+        const contactsCollection = database.collections.get('contacts');
+        const messagesCollection = database.collections.get('messages');
+
+        const updatedMsgIds = [];
+
+        // Batch write: update messages then contact in one transaction
+        await database.write(async () => {
+          // fetch incoming messages from this contact
+          // (we fetch by sender_id; depending on your shape you might also want to include chat_id)
+          const incoming = await messagesCollection
+            .query(Q.where('sender_id', chatIdToReset))
+            .fetch();
+
+          for (const m of incoming) {
+            const raw = m._raw || {};
+            // only update messages that are not already 'read'
+            if (raw.status !== 'read') {
+              try {
+                await m.update(r => {
+                  r._raw = {
+                    ...r._raw,
+                    status: 'read',
+                  };
+                });
+                updatedMsgIds.push(raw.id ?? m.id);
+              } catch (e) {
+                // ignore single-message update failures
+              }
+            }
+          }
+
+          // update contact unread_count -> 0 (if contact exists)
+          const rec = await contactsCollection.find(chatIdToReset).catch(() => null);
+          if (rec) {
+            try {
+              await rec.update(r => {
+                r._raw = {
+                  ...r._raw,
+                  unread_count: 0,
+                };
+              });
+            } catch (e) {
+              // ignore contact update failure
+            }
+          } else {
+            // contact missing — nothing to set. Optionally create contact here.
+          }
+        });
+
+        // Outside DB write: emit markAsRead for each message to inform server
+        // (do this after write to avoid race conditions)
+        for (const mid of updatedMsgIds) {
+          try {
+            markAsRead(mid);
+          } catch (e) {
+            // ignore socket emission errors
+          }
+        }
+
+        if (updatedMsgIds.length > 0) {
+          console.log(
+            '[ChatScreen] marked messages read and reset unread_count for',
+            chatIdToReset,
+          );
+        } else {
+          // still ensure contact row is cleared if present (in case no messages were updated)
+          try {
+            const contactsCollection = database.collections.get('contacts');
+            const rec2 = await contactsCollection.find(chatIdToReset).catch(() => null);
+            if (rec2) {
+              await database.write(async () => {
+                await rec2.update(r => {
+                  r._raw = {
+                    ...r._raw,
+                    unread_count: 0,
+                  };
+                });
+              });
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      } catch (e) {
+        console.warn('[ChatScreen] failed to reset unread_count', e);
+      }
+    },
+    [database],
+  );
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -144,8 +240,14 @@ export default function ChatScreen() {
       if (!msgId || readRef.current.has(msgId)) return;
       markAsRead(msgId);
       markReadLocally(msgId);
+      // reset unread count for this chat (since we've acknowledged reading)
+      try {
+        if (chatId) resetUnreadForChat(chatId);
+      } catch (e) {
+        // ignore
+      }
     },
-    [markReadLocally],
+    [markReadLocally, resetUnreadForChat, chatId],
   );
 
   // helper to lookup contact public key
@@ -216,7 +318,17 @@ export default function ChatScreen() {
         }
 
         if (msg.id) emitDelivered(msg.id);
-        if (isFocused && msg.id) emitRead(msg.id);
+        if (isFocused && msg.id) {
+          emitRead(msg.id);
+          // ensure unread counter reset when this chat is focused
+          try {
+            if (database && chatId) {
+              await resetUnreadForChat(chatId);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     };
 
@@ -236,7 +348,7 @@ export default function ChatScreen() {
       messageSubscription();
       statusSubscription();
     };
-  }, [chatId, isFocused, emitDelivered, emitRead, database, privateKey]);
+  }, [chatId, isFocused, emitDelivered, emitRead, database, privateKey, resetUnreadForChat]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -247,7 +359,25 @@ export default function ChatScreen() {
     messages
       .filter(m => m.type === 'received' && m.id && !readRef.current.has(m.id))
       .forEach(m => emitRead(m.id));
-  }, [isFocused, messages, emitDelivered, emitRead]);
+
+    // Reset unread_counter for this chat when screen gets focus
+    try {
+      if (database && chatId) {
+        resetUnreadForChat(chatId);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [
+    isFocused,
+    messages,
+    emitDelivered,
+    emitRead,
+    database,
+    emitRead,
+    chatId,
+    resetUnreadForChat,
+  ]);
 
   const onMessagesViewed = useCallback(
     visibleIds => {
@@ -258,8 +388,16 @@ export default function ChatScreen() {
           emitRead(id);
         }
       }
+      // if user scrolled and thus viewed messages, reset unread counter for this chat
+      try {
+        if (database && chatId) {
+          resetUnreadForChat(chatId);
+        }
+      } catch (e) {
+        // ignore
+      }
     },
-    [messages, emitRead],
+    [messages, emitRead, database, chatId, resetUnreadForChat],
   );
 
   const handleSendMessage = async text => {

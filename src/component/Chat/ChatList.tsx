@@ -3,26 +3,26 @@ import { FlatList, StyleSheet } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import RecentChatCard from '../ui/Home/RecentChatCard';
 import { useDatabase } from '../../context/DatabaseContext';
-// Assuming you have a Contact model from WatermelonDB, otherwise this interface is good.
-// It's better to define interfaces/types outside the component scope.
+import { Q } from '@nozbe/watermelondb';
+
+// Interfaces
 interface Contact {
   id: string;
-  name: string;
-  lastMessage: string;
+  username: string;
+  phone: string;
   timestamp: string;
   unreadCount: number;
   isOnline: boolean;
   avatarUrl: string;
 }
 
-// Type-safe nested navigation
+// Navigation types (unchanged)
 type HomeStackParamList = {
   Home: undefined;
   Profile: undefined;
   Chat: { chatId: string; chatName: string; avatarUrl: string };
 };
 
-// Combining param lists for better type safety with nested navigators
 type RootStackParamList = {
   MainTabs: undefined;
   HomeFlow: {
@@ -42,35 +42,178 @@ const ITEM_HEIGHT = 88; // match RecentChatCard height
 const ChatListScreen: React.FC<ChatListScreenProps> = ({ headerHeight = 0, footerHeight = 0 }) => {
   const database = useDatabase();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  // Use the combined param list for the navigation prop
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  // *** IMPROVEMENT 1: Fetch data using the useEffect hook ***
-  // This ensures contacts are fetched when the component mounts.
-  // The empty dependency array [] means this effect runs only once.
   useEffect(() => {
-    const fetchContacts = async () => {
+    if (!database) return;
+
+    const contactsCollection = database.collections.get('contacts');
+    const messagesCollection = database.collections.get('messages');
+
+    // Keep last snapshots in closure so both observers can combine info
+    let lastContactsRecords: any[] = [];
+    let lastMessagesRecords: any[] = [];
+
+    let contactsSub: any = null;
+    let messagesSub: any = null;
+    let mounted = true;
+
+    const computeAndSet = async (contactsRecords: any[], messagesRecords: any[]) => {
+      if (!mounted) return;
+
       try {
-        const contactsCollection = database.get('contacts');
-        // It's good practice to type the fetched data if possible
-        const fetchedContacts = await contactsCollection.query().fetch();
+        // Build unread counts and latest timestamp map from messages table
+        const unreadCountMap = new Map<string, number>();
+        const latestTsMap = new Map<string, number>();
 
-        // WatermelonDB returns Model instances. We map over them to get the raw data
-        // which matches our Contact interface.
-        const formattedContacts = fetchedContacts.map(c => c._raw as unknown as Contact);
+        for (const m of messagesRecords || []) {
+          const raw = m._raw || {};
+          const sender = raw.sender_id ?? null;
+          const status = raw.status ?? '';
+          const tsRaw = raw.timestamp ?? raw.ts ?? null;
+          // normalize timestamp to ms
+          let tsNum = 0;
+          if (tsRaw !== null && tsRaw !== undefined) {
+            const n = Number(tsRaw);
+            if (!Number.isNaN(n)) tsNum = String(n).length === 10 ? n * 1000 : n;
+            else tsNum = Date.now();
+          }
 
-        setContacts(formattedContacts);
+          // Count only incoming messages (sender exists and not 'me') and not read
+          if (sender && sender !== 'me' && status !== 'read') {
+            unreadCountMap.set(sender, (unreadCountMap.get(sender) ?? 0) + 1);
+          }
 
-        console.log('[Chatlist][Contacts] Current contacts in DB:', formattedContacts);
-      } catch (error) {
-        console.error('[ChatListScreen] Failed to fetch contacts:', error);
+          // Use chat_id or sender to determine latest time per contact
+          const contactKey = raw.sender_id ?? raw.chat_id ?? null;
+          if (contactKey) {
+            const prev = latestTsMap.get(contactKey) ?? 0;
+            if (tsNum > prev) latestTsMap.set(contactKey, tsNum);
+          }
+        }
+
+        // Map contacts to UI shape and detect differences to sync DB if needed
+        const toUpdate: { rec: any; newCount: number }[] = [];
+        const formatted: Contact[] = (contactsRecords || []).map(c => {
+          const raw = c._raw || {};
+          const id = raw.id ?? raw._id ?? '';
+          const computedUnread = Number(unreadCountMap.get(id) ?? 0);
+          const dbUnread = Number(raw.unread_count ?? 0);
+
+          // if mismatch between computed unread and DB, schedule update
+          if (computedUnread !== dbUnread && c) {
+            toUpdate.push({ rec: c, newCount: computedUnread });
+          }
+
+          const ts = latestTsMap.get(id) ?? Number(raw.last_seen ?? raw.timestamp ?? 0);
+          const timestampString =
+            ts && !Number.isNaN(Number(ts)) ? new Date(Number(ts)).toISOString() : '';
+
+          return {
+            id,
+            username: raw.username ?? '',
+            phone: raw.phone ?? '',
+            timestamp: timestampString,
+            unreadCount: computedUnread,
+            isOnline: Boolean(raw.is_online ?? false),
+            avatarUrl: raw.avatar_url ?? '',
+          } as Contact;
+        });
+
+        // If there are contacts not present in contactsRecords but present in messages (new chats),
+        // add entries for them so user sees chats even before contact row exists.
+        for (const [senderId, cnt] of unreadCountMap.entries()) {
+          const exists = formatted.some(f => f.id === senderId);
+          if (!exists) {
+            const ts = latestTsMap.get(senderId) ?? Date.now();
+            formatted.push({
+              id: senderId,
+              username: senderId,
+              phone: '',
+              timestamp: new Date(ts).toISOString(),
+              unreadCount: cnt,
+              isOnline: false,
+              avatarUrl: '',
+            });
+            // Optionally: we could create a contact record here, but avoid auto-creating unless you want that.
+          }
+        }
+
+        // Sort: unread desc, then newest timestamp desc
+        formatted.sort((a, b) => {
+          if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
+          const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return tb - ta;
+        });
+
+        // Apply DB sync for any changed unread counts in a single write
+        if (toUpdate.length > 0) {
+          try {
+            await database.write(async () => {
+              for (const upd of toUpdate) {
+                // defensive check: ensure rec still exists and update only if needed
+                try {
+                  const latestRaw = upd.rec._raw || {};
+                  const cur = Number(latestRaw.unread_count ?? 0);
+                  if (cur !== upd.newCount) {
+                    await upd.rec.update(r => {
+                      r._raw = {
+                        ...r._raw,
+                        unread_count: upd.newCount,
+                      };
+                    });
+                  }
+                } catch (e) {
+                  // ignore per-record update failure
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('[ChatListScreen] failed to sync unread counts to DB', e);
+          }
+        }
+
+        // Finally set local state
+        setContacts(formatted);
+      } catch (e) {
+        console.warn('[ChatListScreen] computeAndSet error', e);
       }
     };
 
-    fetchContacts();
-  }, [database]); // Dependency on `database` ensures it doesn't run until DB is available.
+    // subscribe to contacts observable
+    try {
+      const contactsObs = contactsCollection.query().observe();
+      contactsSub = contactsObs.subscribe((records: any[]) => {
+        lastContactsRecords = records || [];
+        void computeAndSet(lastContactsRecords, lastMessagesRecords);
+      });
+    } catch (e) {
+      console.warn('[ChatListScreen] contacts observe failed', e);
+    }
 
-  // *** IMPROVEMENT 2: Correctly typed navigation with no `as never` cast ***
+    // subscribe to messages observable
+    try {
+      const messagesObs = messagesCollection.query().observe();
+      messagesSub = messagesObs.subscribe((records: any[]) => {
+        lastMessagesRecords = records || [];
+        void computeAndSet(lastContactsRecords, lastMessagesRecords);
+      });
+    } catch (e) {
+      console.warn('[ChatListScreen] messages observe failed', e);
+    }
+
+    return () => {
+      mounted = false;
+      try {
+        if (contactsSub && typeof contactsSub.unsubscribe === 'function') contactsSub.unsubscribe();
+        if (messagesSub && typeof messagesSub.unsubscribe === 'function') messagesSub.unsubscribe();
+      } catch (e) {
+        // ignore cleanup errors
+      }
+    };
+  }, [database]);
+
   const handleChatPress = useCallback(
     (chatId: string, chatName: string, avatarUrl: string) => {
       navigation.navigate('HomeFlow', {
@@ -81,7 +224,6 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ headerHeight = 0, foote
     [navigation],
   );
 
-  // *** IMPROVEMENT 3: Type the `item` prop directly for cleaner code ***
   const renderItem = useCallback(
     ({ item }: { item: Contact }) => (
       <RecentChatCard
@@ -109,16 +251,14 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ headerHeight = 0, foote
 
   return (
     <FlatList
-      data={contacts} // Use the state variable `contacts`
+      data={contacts}
       keyExtractor={item => item.id}
       style={styles.list}
       contentContainerStyle={{
-        // paddingTop: headerHeight, // This is still available if you need it
         paddingBottom: footerHeight + 120,
       }}
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
-      // Performance props are great!
       initialNumToRender={10}
       maxToRenderPerBatch={10}
       windowSize={6}
@@ -134,7 +274,7 @@ const styles = StyleSheet.create({
     zIndex: 60,
     borderTopRightRadius: 30,
     borderTopLeftRadius: 30,
-    paddingTop: 10,
+
   },
 });
 
