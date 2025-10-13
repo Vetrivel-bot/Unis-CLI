@@ -11,13 +11,13 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.unis.vpn.IpChecker.checkPublicIp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
@@ -81,6 +81,7 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         try {
             val prepareIntent = VpnService.prepare(context)
             if (prepareIntent != null) {
+                // app doesn't have VPN permission -> ask via MainActivity
                 sendEvent("VPN_STATUS", "PERMISSION_REQUESTED")
                 val intent = Intent(context, com.unis.MainActivity::class.java)
                 intent.putExtra("vpn_action", "request_permission")
@@ -89,10 +90,79 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
                 context.startActivity(intent)
                 Log.i(TAG, "Started MainActivity for VPN permission request")
             } else {
-                startVpnService(config)
+                // permission already granted — call your ReactMethod checkVpnPermission(promise)
+                // Create a tiny promise implementation to capture the result
+                val permissionResult = booleanArrayOf(false)
+                val tempPromise = object : Promise {
+                    override fun resolve(value: Any?) {
+                        try {
+                            permissionResult[0] = (value as? Boolean) ?: false
+                            Log.i(TAG, "TempPromise resolved: ${permissionResult[0]}")
+                        } catch (ex: Exception) {
+                            Log.w(TAG, "TempPromise resolve error: ${ex.message}")
+                        }
+                    }
 
-                CoroutineScope(Dispatchers.IO).launch {
-                    waitForVpnConnection()
+                    // Implement common reject overloads so the anonymous object is valid against the RN Promise interface
+                    override fun reject(code: String, message: String?) {
+                        Log.e(TAG, "TempPromise rejected: code=$code message=$message")
+                    }
+
+                    override fun reject(code: String, throwable: Throwable?) {
+                        Log.e(TAG, "TempPromise rejected: code=$code throwable=${throwable?.message}")
+                    }
+
+                    override fun reject(code: String, message: String?, throwable: Throwable?) {
+                        Log.e(TAG, "TempPromise rejected: code=$code message=$message throwable=${throwable?.message}")
+                    }
+
+                    override fun reject(throwable: Throwable) {
+                        Log.e(TAG, "TempPromise rejected throwable: ${throwable.message}")
+                    }
+
+                    override fun reject(throwable: Throwable, userInfo: WritableMap) {
+                        Log.e(TAG, "TempPromise rejected throwable with userInfo: ${throwable.message}")
+                    }
+
+                    override fun reject(code: String, userInfo: WritableMap) {
+                        Log.e(TAG, "TempPromise rejected code with userInfo: $code")
+                    }
+
+                    override fun reject(code: String, throwable: Throwable?, userInfo: WritableMap) {
+                        Log.e(TAG, "TempPromise rejected code with throwable and userInfo: $code ${throwable?.message}")
+                    }
+
+                    override fun reject(code: String, message: String?, userInfo: WritableMap) {
+                        Log.e(TAG, "TempPromise rejected code with message and userInfo: $code $message")
+                    }
+
+                    override fun reject(code: String?, message: String?, throwable: Throwable?, userInfo: WritableMap?) {
+                        Log.e(TAG, "TempPromise rejected generic: code=$code message=$message throwable=${throwable?.message}")
+                    }
+
+                    override fun reject(message: String) {
+                        Log.e(TAG, "TempPromise rejected message: $message")
+                    }
+                }
+
+                // Call the ReactMethod version (it will synchronously call promise.resolve)
+                checkVpnPermission(tempPromise)
+
+                // Decision based on the promise result (synchronous for our checkVpnPermission implementation)
+                if (permissionResult[0]) {
+                    startVpnService(config)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        waitForVpnConnection()
+                    }
+                } else {
+                    // If for some reason permission is false (shouldn't happen here), request it via MainActivity
+                    sendEvent("VPN_STATUS", "PERMISSION_REQUIRED")
+                    val intent = Intent(context, com.unis.MainActivity::class.java)
+                    intent.putExtra("vpn_action", "request_permission")
+                    intent.putExtra("config", config)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                    Log.i(TAG, "Started MainActivity to request permission (fallback)")
                 }
             }
         } catch (ex: Exception) {
@@ -136,6 +206,10 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
         }
     }
 
+    private fun checkVpnPermission(): Boolean {
+        return VpnService.prepare(context) == null
+    }
+
     private fun startVpnService(config: String) {
         try {
             val intent = Intent(context, WireGuardVpnService::class.java)
@@ -150,13 +224,10 @@ class VpnModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMod
     }
 
     private suspend fun waitForVpnConnection() {
-
-        val timeout = System.currentTimeMillis() + 60000*5 // 5 min max wait
+        val timeout = System.currentTimeMillis() + 60000L * 1 // adjust as needed
         while (System.currentTimeMillis() < timeout) {
             delay(500)
-
             checkPublicIp()
         }
-
     }
 }

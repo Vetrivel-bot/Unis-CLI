@@ -50,7 +50,7 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       {/* The two headers float on top of the list */}
-      <ProfileHeader title='Unis' />
+      <ProfileHeader title='Chats' />
 
       {/* 4. Render the SecondaryHeader here and pass it the required props */}
       <SecondaryHeader activeTab={activeTab} onTabPress={handleTabPress} />
