@@ -5,9 +5,16 @@
 <h1 align="center">UniS — Secure Communication Ecosystem</h1>
 
 Smart India Hackathon (SIH) 2025 Project — ID: SIH25184
-
 UniS (Unified Secure Communication System) is a defense-grade, end-to-end encrypted communication ecosystem built for the Smart India Hackathon 2025.
-It provides secure text, voice, and video communication, encrypted file sharing, and multi-level access control — designed to serve defense, government, and institutional use cases.
+It provides secure text, voice, and video communication, encrypted file sharing, and multi-level access control — purpose-built for defense, government, and institutional networks.
+
+Beyond standard encryption, UniS employs a hybrid network security layer integrating VPN-based tunneling, network isolation, and traffic obfuscation to ensure that communication remains protected even across public or compromised networks.
+All data is routed through secure cloud tunnels or private mesh nodes, forming a virtual intranet accessible only by authorized users.
+The system supports dynamic VPN provisioning, enabling defense departments or government agencies to spin up secure, temporary communication networks on demand.
+
+UniS aims to be a sovereign Indian communication platform, blending advanced encryption, secure VPN infrastructure, and policy-driven access control — making it a future-ready solution for national-grade confidential communication.
+
+[Watch UniS Demo on YouTube](https://youtu.be/-qN4O_VSlcg)
 
 🚀 Features
 
