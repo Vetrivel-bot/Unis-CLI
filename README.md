@@ -57,13 +57,17 @@ JWT, AES, RSA Encryption
 📱 Frontend (React Native)
 
 git clone [https://github.com/V/Unis-CLI.git](https://github.com/Vetrivel-bot/Unis-CLI)
+
 npm install
+
 npx react-native run-android
 
 💾 Backend (Node.js)
 
 git clone [https://github.com/<your-username>/Unis-server.git](https://github.com/Vetrivel-bot/Unis-server)
+
 npm install
+
 npm run dev
 
 🔄 System Architecture
