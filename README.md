@@ -67,16 +67,22 @@ It provides secure text, voice, and video communication, encrypted file sharing,
   npm run dev
 
 🧱 Project Structure
-    Unis-CLI/              # React Native App
-    ├── android/
-    ├── ios/
-    └── src/
-    Unis-server/           # Node.js Backend
+
+UniS/
+├── Unis-CLI/              # React Native App
+│   ├── android/
+│   ├── ios/
+│   └── src/
+│       └── assets/
+│           └── logo.png
+│
+└── Unis-server/           # Node.js Backend
     ├── routes/
     ├── controllers/
     ├── models/
-    └── utils/
+    ├── utils/
     └── config/
+
 
 🔄 System Architecture
 
