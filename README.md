@@ -1,10 +1,6 @@
-<p align="center">
-<img src="./src/assets/logo.png" alt="UniS Logo" width="120" height="120" />
-</p>
+<p align="center"> <img src="./src/assets/logo.png" alt="UniS Logo" width="120" height="120" /> </p> <h1 align="center">🛡️ UniS — Secure Communication Ecosystem</h1> <table align="center" style="width:100%"> <tr> <td align="left"><b>Smart India Hackathon (SIH) 2025 Project — ID: SIH25184</b></td> <td align="right"><a href="https://youtu.be/-qN4O_VSlcg">🎥 Watch UniS Demo on YouTube</a></td> </tr> </table>
+🧩 Overview
 
-<h1 align="center">UniS — Secure Communication Ecosystem</h1>
-
-Smart India Hackathon (SIH) 2025 Project — ID: SIH25184
 UniS (Unified Secure Communication System) is a defense-grade, end-to-end encrypted communication ecosystem built for the Smart India Hackathon 2025.
 It provides secure text, voice, and video communication, encrypted file sharing, and multi-level access control — purpose-built for defense, government, and institutional networks.
 
@@ -13,8 +9,6 @@ All data is routed through secure cloud tunnels or private mesh nodes, forming a
 The system supports dynamic VPN provisioning, enabling defense departments or government agencies to spin up secure, temporary communication networks on demand.
 
 UniS aims to be a sovereign Indian communication platform, blending advanced encryption, secure VPN infrastructure, and policy-driven access control — making it a future-ready solution for national-grade confidential communication.
-
-[Watch UniS Demo on YouTube](https://youtu.be/-qN4O_VSlcg)
 
 🚀 Features
 
@@ -35,8 +29,7 @@ UniS aims to be a sovereign Indian communication platform, blending advanced enc
 🇮🇳 Made in India, for Secure India
 
 🧰 Tech Stack
-
-Frontend (Mobile App)
+🖥️ Frontend (Mobile App)
 
 React Native
 
@@ -46,7 +39,7 @@ Keystore
 
 Secure Storage
 
-Backend (Server)
+⚙️ Backend (Server)
 
 Node.js + Express
 
@@ -63,7 +56,7 @@ JWT, AES, RSA Encryption
 ⚙️ Installation & Setup
 📱 Frontend (React Native)
 
-git clone [https://github.com/V/Unis-CLI.git](https://github.com/Vetrivel-bot/Unis-CLI)
+git clone https://github.com/Vetrivel-bot/Unis-CLI
 
 npm install
 
@@ -71,7 +64,7 @@ npx react-native run-android
 
 💾 Backend (Node.js)
 
-git clone [https://github.com/<your-username>/Unis-server.git](https://github.com/Vetrivel-bot/Unis-server)
+git clone https://github.com/Vetrivel-bot/Unis-server
 
 npm install
 
@@ -108,6 +101,3 @@ Team: SRM IST
 Project ID: SIH25184
 Status: Prototype Development Phase
 Focus: National-Grade Secure Communication System for Personnels
-
-
-
