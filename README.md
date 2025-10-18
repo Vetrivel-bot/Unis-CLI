@@ -1,4 +1,4 @@
-![UniS Logo](./assets/logo.png) UniS — Secure Communication Ecosystem
+![UniS Logo](./src/assets/logo.png) UniS — Secure Communication Ecosystem
 
 Smart India Hackathon (SIH) 2025 Project — ID: SIH25184
 
