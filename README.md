@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./src/assets/logo.png" alt="UniS Logo" width="120" height="120" />
+<img src="./src/assets/logo.png" alt="UniS Logo" width="120" height="120" />
 </p>
 
 <h1 align="center">UniS — Secure Communication Ecosystem</h1>
@@ -11,86 +11,86 @@ It provides secure text, voice, and video communication, encrypted file sharing,
 
 🚀 Features
 
-  🔒 End-to-End Encryption (E2EE) — full data confidentiality for messages and files
-  
-  🧠 Post-Quantum Encryption (Future Ready) — resists quantum attacks
-  
-  💬 Real-Time Chat — instant, private, and seamless
-  
-  📁 Secure File Sharing — AES-encrypted file exchange
-  
-  📞 Voice & Video Calls — real-time communication with low latency
-  
-  🧩 Multi-Level Admin Control — departmental isolation
-  
-  ☁️ Cloud / Self Hosting — flexible deployment for security compliance
-  
-  🇮🇳 Made in India, for Secure India
+🔒 End-to-End Encryption (E2EE) — full data confidentiality for messages and files
+
+🧠 Post-Quantum Encryption (Future Ready) — resists quantum attacks
+
+💬 Real-Time Chat — instant, private, and seamless
+
+📁 Secure File Sharing — AES-encrypted file exchange
+
+📞 Voice & Video Calls — real-time communication with low latency
+
+🧩 Multi-Level Admin Control — departmental isolation
+
+☁️ Cloud / Self Hosting — flexible deployment for security compliance
+
+🇮🇳 Made in India, for Secure India
 
 🧰 Tech Stack
 
-  Frontend (Mobile App)
-  
-  React Native
-  
-  Context API
-  
-  Keystore
-  
-  Secure Storage
-  
-  Backend (Server)
-  
-  Node.js + Express
-  
-  Socket.IO
-  
-  MongoDB
-  
-  Redis
-  
-  Postgres
-  
-  JWT, AES, RSA Encryption
+Frontend (Mobile App)
+
+React Native
+
+Context API
+
+Keystore
+
+Secure Storage
+
+Backend (Server)
+
+Node.js + Express
+
+Socket.IO
+
+MongoDB
+
+Redis
+
+Postgres
+
+JWT, AES, RSA Encryption
 
 ⚙️ Installation & Setup
-  📱 Frontend (React Native)
-  
-  git clone [https://github.com/V/Unis-CLI.git](https://github.com/Vetrivel-bot/Unis-CLI)
-  npm install
-  npx react-native run-android
-  
-  💾 Backend (Node.js)
-  
-  git clone [https://github.com/<your-username>/Unis-server.git](https://github.com/Vetrivel-bot/Unis-server)
-  npm install
-  npm run dev
+📱 Frontend (React Native)
+
+git clone [https://github.com/V/Unis-CLI.git](https://github.com/Vetrivel-bot/Unis-CLI)
+npm install
+npx react-native run-android
+
+💾 Backend (Node.js)
+
+git clone [https://github.com/<your-username>/Unis-server.git](https://github.com/Vetrivel-bot/Unis-server)
+npm install
+npm run dev
 
 🔄 System Architecture
 
-  Client (UniS App) encrypts all messages before sending.
-  
-  Server acts as a secure relay using Socket.IO (no message access).
-  
-  Receiver App decrypts the message locally.
-  
-  Files stored temporarily using encrypted file storage.
-  
-  💡 This ensures true end-to-end encryption — even the server can’t read user data.
-  
-  🧪 Future Roadmap
-  
-  🧠 Post-Quantum Cryptography Layer
-  
-  🕹️ Mobile Admin Dashboard
-  
-  🧩 Department-wise Encrypted Networks
-  
-  🚀 Cloud Auto-Scaling & Load Balancing
-  
-  🇮🇳 Fully Indian Defense Cloud Deployment
-  
-  🏆 Smart India Hackathon (SIH) 2025
+Client (UniS App) encrypts all messages before sending.
+
+Server acts as a secure relay using Socket.IO (no message access).
+
+Receiver App decrypts the message locally.
+
+Files stored temporarily using encrypted file storage.
+
+💡 This ensures true end-to-end encryption — even the server can’t read user data.
+
+🧪 Future Roadmap
+
+🧠 Post-Quantum Cryptography Layer
+
+🕹️ Mobile Admin Dashboard
+
+🧩 Department-wise Encrypted Networks
+
+🚀 Cloud Auto-Scaling & Load Balancing
+
+🇮🇳 Fully Indian Defense Cloud Deployment
+
+🏆 Smart India Hackathon (SIH) 2025
 
 Track: Cybersecurity / Communication Systems
 Team: SRM IST
