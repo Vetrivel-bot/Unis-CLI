@@ -5,5 +5,13 @@
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     </style>
+        <!-- Transparent theme for VPN permission activity -->
+    <style name="AppTheme.Transparent" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+    </style>
 
 </resources>

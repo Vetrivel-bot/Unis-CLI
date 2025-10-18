@@ -4,7 +4,7 @@
     "**/*.ts",
     "**/*.tsx",
     "nativewind-env.d.ts"
-, "src/screen/HomeScreen.jsx"  ],
+, "src/screen/HomeScreen.jsx", "src/component/layout/SecondaryHeader.jsx", "src/screens/(home)/ProfileScreen.jsx", "src/services/api.js", "src/context/AppContext.jsx", "src/context/SocketContext.jsx", "src/screens/(chatInterface)/ChatScreen.jsx"  ],
   "exclude": [
     "**/node_modules",
     "**/Pods"
