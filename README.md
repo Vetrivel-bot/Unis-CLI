@@ -66,24 +66,6 @@ It provides secure text, voice, and video communication, encrypted file sharing,
   npm install
   npm run dev
 
-🧱 Project Structure
-
-UniS/
-├── Unis-CLI/              # React Native App
-│   ├── android/
-│   ├── ios/
-│   └── src/
-│       └── assets/
-│           └── logo.png
-│
-└── Unis-server/           # Node.js Backend
-    ├── routes/
-    ├── controllers/
-    ├── models/
-    ├── utils/
-    └── config/
-
-
 🔄 System Architecture
 
   Client (UniS App) encrypts all messages before sending.
