@@ -36,8 +36,8 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     primary: '#0056b8ff',         // A bright mint for excellent contrast
     secondary: '#94a3b8',       // The light version of the slate blue
     accent: '#fcd34d',          // A strong, vibrant gold
-    card: '#1c2521',            // Dark, low-contrast card background
-    cardSecondary: '#283754c1',   // Subtle variation for nested elements
+    card: '#000000',            // Dark, low-contrast card background
+    cardSecondary: '#152f4fff',   // Subtle variation for nested elements
     border: '#424d47',          // Visible but not distracting
 
     // Status Colors
@@ -46,7 +46,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     error: '#f87171',
 
     // Glassmorphism Effect
-    glassBackground: 'rgba(5, 3, 14, 1)',
+    glassBackground: 'rgba(0, 0, 0, 1)',
     glassBorder: 'rgba(255, 255, 255, 0.1)',
     glassShadow: 'rgba(0, 0, 0, 0.3)',
 

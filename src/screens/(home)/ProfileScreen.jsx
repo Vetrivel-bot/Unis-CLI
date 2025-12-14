@@ -50,7 +50,7 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       {/* The two headers float on top of the list */}
-      <ProfileHeader title='Unis' />
+      <ProfileHeader title='Chats' />
 
       {/* 4. Render the SecondaryHeader here and pass it the required props */}
       <SecondaryHeader activeTab={activeTab} onTabPress={handleTabPress} />
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   chatList: {
     flex: 1,
-    backgroundColor: '#222228ff',
+    backgroundColor: '#101012ff',
     top: 120,
     zIndex: 102,
     borderTopRightRadius: 40,

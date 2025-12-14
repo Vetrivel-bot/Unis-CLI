@@ -27,7 +27,7 @@ export default function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {/* <Stack.Screen name='Devflow' component={DevNavigator} /> */}
 
-      {true ? (
+      {user ? (
         <>
                   <Stack.Screen name='ChatInterface' component={CallNavigator} />
 

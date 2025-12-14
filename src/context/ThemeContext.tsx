@@ -14,7 +14,7 @@ const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 const THEME_KEY = 'APP_THEME';
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [theme, setThemeState] = useState<Theme>('dark');
 
   useEffect(() => {
     (async () => {

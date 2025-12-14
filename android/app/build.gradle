@@ -110,8 +110,15 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-implementation "androidx.security:security-crypto:1.1.0-alpha04"
-implementation "androidx.biometric:biometric:1.2.0-alpha03" // or stable latest
+    implementation "androidx.security:security-crypto:1.1.0-alpha04"
+    implementation "androidx.biometric:biometric:1.2.0-alpha03" // or stable latest
+    //noinspection Aligned16KB
+    // https://mvnrepository.com/artifact/com.wireguard.android/tunnel
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
+    //implementation ("com.wireguard:wireguard-crypto:1.0.20230706")
+    implementation ("com.facebook.react:react-native")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
 
     if (hermesEnabled.toBoolean()) {

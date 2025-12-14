@@ -26,10 +26,9 @@ const MessageList: React.FC<MessageListProps> = ({
   onMessagesViewed,
 }) => {
   const flatListRef = useRef<FlatList<Message> | null>(null);
-
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+      flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
