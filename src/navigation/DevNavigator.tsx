@@ -8,9 +8,12 @@ import CryptoTestScreen from '../screens/(test)/CryptoTestScreen';
 const Stack = createNativeStackNavigator();
 
 const DevNavigator = () => {
+  console.log("✅ HmacScreen imported:", typeof DBtestscreen);
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name='HmacTest' component={HmacTestScreen} />
+           <Stack.Screen name='ThemeDemo' component={ThemeDemoScreen} />
+ <Stack.Screen name='HmacTest' component={DBtestscreen} />
 
       <Stack.Screen name='CryptoDemo' component={CryptoTestScreen} />
 

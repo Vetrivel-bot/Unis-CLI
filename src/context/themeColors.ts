@@ -26,7 +26,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     // Chat-Specific Colors
     chatBubbleOutgoing: '#e0f2f1',
     chatBubbleIncoming: '#f5f5f4',
-    onlineIndicator: '#10b981',
+    onlineIndicator: '#41c89bff',
   },
   dark: {
     // Core Palette
@@ -41,7 +41,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     border: '#424d47',          // Visible but not distracting
 
     // Status Colors
-    success: '#34d399',
+    success: '#4be1aaff',
     warning: '#fbbf24',
     error: '#f87171',
 
@@ -53,7 +53,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     // Chat-Specific Colors
     chatBubbleOutgoing: '#0056b8ff',
     chatBubbleIncoming: '#2d2c2cff',
-    onlineIndicator: '#34d399',
+    onlineIndicator: '#1c5c44ff',
   },
 };
 
