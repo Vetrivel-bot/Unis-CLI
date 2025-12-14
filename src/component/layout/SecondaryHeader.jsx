@@ -9,7 +9,7 @@ import { useThemeColors } from '../../context/themeColors';
 const TABS = [
   { name: 'Chat', icon: MessageSquare },
   { name: 'Calls', icon: Phone },
-  { name: 'Status', icon: Home },
+  // { name: 'Status', icon: Home },
 ];
 
 const getIconComponent = routeName => {

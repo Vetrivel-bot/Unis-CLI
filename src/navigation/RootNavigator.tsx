@@ -2,13 +2,12 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
-
+import CallNavigator from "./CallNavigator"
 import MainTabs from './TabNavigator';
 import AuthNavigator from './AuthNavigator';
 import HomeNavigator from './HomeNavigator'; // <-- make sure this exists
 import { useAppContext } from '../context/AppContext';
 import DevNavigator from './DevNavigator';
-
 const Stack = createNativeStackNavigator();
 
 const SplashScreen = () => (
@@ -26,16 +25,18 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name='Devflow' component={DevNavigator} />
+      {/* <Stack.Screen name='Devflow' component={DevNavigator} /> */}
 
-      {/* {user ? (
+      {true ? (
         <>
+                  <Stack.Screen name='ChatInterface' component={CallNavigator} />
+
           <Stack.Screen name='MainTabs' component={MainTabs} />
           <Stack.Screen name='HomeFlow' component={HomeNavigator} />
         </>
       ) : (
         <Stack.Screen name='AuthFlow' component={AuthNavigator} />
-      )} */}
+      )}
     </Stack.Navigator>
   );
 }

@@ -22,7 +22,7 @@ export const setupDatabase = async () => {
   const adapter = new SQLiteAdapter({
     schema: mySchema,
     dbName: 'Unis', // The name of your database file on the device
-    jsi: true, // Recommended for performance in modern React Native
+    jsi: false, // Recommended for performance in modern React Native
     onSetUpError: error => {
       // Crucial for debugging. This will be called if the database can't be opened,
       // which could happen with a key mismatch or corrupted file.

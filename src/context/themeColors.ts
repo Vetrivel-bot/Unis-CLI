@@ -26,7 +26,7 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     // Chat-Specific Colors
     chatBubbleOutgoing: '#e0f2f1',
     chatBubbleIncoming: '#f5f5f4',
-    onlineIndicator: '#10b981',
+    onlineIndicator: '#41c89bff',
   },
   dark: {
     // Core Palette
@@ -37,11 +37,11 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     secondary: '#94a3b8',       // The light version of the slate blue
     accent: '#fcd34d',          // A strong, vibrant gold
     card: '#1c2521',            // Dark, low-contrast card background
-    cardSecondary: '#27322d',   // Subtle variation for nested elements
+    cardSecondary: '#283754c1',   // Subtle variation for nested elements
     border: '#424d47',          // Visible but not distracting
 
     // Status Colors
-    success: '#34d399',
+    success: '#4be1aaff',
     warning: '#fbbf24',
     error: '#f87171',
 
@@ -51,9 +51,9 @@ const colorPalettes: Record<Theme, Record<string, string>> = {
     glassShadow: 'rgba(0, 0, 0, 0.3)',
 
     // Chat-Specific Colors
-    chatBubbleOutgoing: '#133fffff',
+    chatBubbleOutgoing: '#0056b8ff',
     chatBubbleIncoming: '#2d2c2cff',
-    onlineIndicator: '#34d399',
+    onlineIndicator: '#1c5c44ff',
   },
 };
 
